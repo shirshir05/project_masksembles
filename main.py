@@ -37,27 +37,27 @@ best_accuracy = 0.0
 datasets_info = {
     "mnist": [70000, 10],
     "beans": [1295, 3],
-    # "binary_alpha_digits": [1404, 36],
-    # "cifar10": [60000, 10],
-    # "citrus_leaves": [425, 4],
-    # "stanford_dogs": [12000, 120],
-    # "cassava": [9430, 5],
-    # "rock_paper_scissors": [2520, 3],
-    #
-    # "horses_or_humans": [1280, 2],
-    # "dmlab":[65550,6],
-    # "food101":[75750,101],
-    # "cmaterdb":[5000,10],
-    # "stanford_online_products": [59551, 12],
-    # "stl10": [5000, 10],
-    # "tf_flowers": [2670, 5],
-    # "cats_vs_dogs":[23262,2],
-    # "uc_merced": [2100, 21],
-    # "kmnist": [60000, 10],
-    # "oxford_flowers102": [8189, 102],
+    "binary_alpha_digits": [1404, 36],
+    "cifar10": [60000, 10],
+    "citrus_leaves": [425, 4],
+    "stanford_dogs": [12000, 120],
+    "cassava": [9430, 5],
+    "rock_paper_scissors": [2520, 3],
+
+    "horses_or_humans": [1280, 2],
+    "dmlab":[65550,6],
+    "food101":[75750,101],
+    "cmaterdb":[5000,10],
+    "stanford_online_products": [59551, 12],
+    "stl10": [5000, 10],
+    "tf_flowers": [2670, 5],
+    "cats_vs_dogs":[23262,2],
+    "uc_merced": [2100, 21],
+    "kmnist": [60000, 10],
+    "oxford_flowers102": [8189, 102],
     # "food101": [75750, 101],
-    # "deep_weeds": [17509, 9],
-    # "eurosat": [27000, 10],
+    "deep_weeds": [17509, 9],
+    "eurosat": [27000, 10],
 
 }  # "dataset_name": [n_samples, NUM_CLASSES]
 MAX_SAMPLES_NUM = 320
@@ -167,7 +167,7 @@ def fitness(learning_rate, num_dense_layers, num_dense_nodes, activation):
         # TODO: change number epoch
         history = model.fit(x=X_train,
                             y=y_train,
-                            epochs=1,
+                            epochs=100,
                             batch_size=32,
                             validation_data=(X_val, y_val),
                             # callbacks=[callback_log]
@@ -289,14 +289,14 @@ for ds_name in datasets_info:
 
     # perform nested cross validation for hyper-parameter optimization and generalization
     # TODO: change 3 to 10
-    kf_external = StratifiedKFold(n_splits=3, shuffle=True, random_state=random_state)
+    kf_external = StratifiedKFold(n_splits=10, shuffle=True, random_state=random_state)
     index_cv = 0
     results = {}
 
-    # TODO: only for test (remove)
-    X = X[:200]
-    Y = Y[:200]
-    labels = labels[:200]
+    # # TODO: only for test (remove)
+    # X = X[:200]
+    # Y = Y[:200]
+    # labels = labels[:200]
 
     for train_val_index, test_index in kf_external.split(X, labels):
         try:
@@ -308,7 +308,7 @@ for ds_name in datasets_info:
                                         dimensions=dimensions,
                                         acq_func='EI',  # Expected Improvement.
                                         # TODO change to 50
-                                        n_calls=11,
+                                        n_calls=50,
                                         x0=default_parameters)
             best_result(search_result,ds_name, index_cv=index_cv)
 
@@ -342,6 +342,8 @@ for ds_name in datasets_info:
             print(traceback.format_exc())
             print(f"Error {e}")
             pass
+    with open(os.path.join("BayesianOptimization", "scores.json"), 'w') as f:  # for tracking
+        json.dump(all_score, f)
     print(results)
 with open(os.path.join("BayesianOptimization", "scores.json"), 'w') as f:
     json.dump(all_score, f)
