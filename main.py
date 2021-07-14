@@ -43,7 +43,7 @@ datasets_info = {
     # "stanford_dogs": [12000, 120],
     # "cassava": [9430, 5],
     # "rock_paper_scissors": [2520, 3],
-
+    #
     # "horses_or_humans": [1280, 2],
     # "dmlab":[65550,6],
     # "food101":[75750,101],
@@ -200,7 +200,7 @@ def best_result(search_result,ds_name,  index_cv=0):
     if not os.path.exists(os.path.join("BayesianOptimization", ds_name, str(index_cv))):
         os.mkdir(os.path.join("BayesianOptimization", ds_name, str(index_cv)))
     plot_convergence(search_result)
-    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv),"Converge.png"), dpi=400)
+    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv), "Converge.png"))
     plt.clf()
     print(f" search result {search_result.x}")
     print(f"The best fitness value associated with these hyper-parameters {search_result.fun}")
@@ -209,12 +209,12 @@ def best_result(search_result,ds_name,  index_cv=0):
                             dimension_identifier1='learning_rate',
                             dimension_identifier2='num_dense_nodes',
                             levels=50)
-    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv),"Lr_numnods.png"), dpi=400)
+    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv),"Lr_numnods.png"))
     plt.clf()
     # create a list for plotting
     dim_names = ['learning_rate', 'num_dense_layers', 'num_dense_nodes', 'activation']
     plot_objective(result=search_result, dimensions=dim_names)
-    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv),"all_dimen.png"), dpi=400)
+    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv),"all_dimen.png"))
     plt.clf()
     plot_evaluations(result=search_result, dimensions=dim_names)
 
@@ -244,6 +244,7 @@ def evaluate_on_test(y_true, y_pred, ds_name, index_cv):
     precision = {}
     recall = {}
     pr = 0
+    plt.clf()
     for i in n_classes:
         pr += pr_auc_score(y_true[:, i], y_pred[:, i])
         precision[i], recall[i], _ = precision_recall_curve(y_true[:, i], y_pred[:, i])
@@ -291,20 +292,11 @@ for ds_name in datasets_info:
     kf_external = StratifiedKFold(n_splits=3, shuffle=True, random_state=random_state)
     index_cv = 0
     results = {}
-    # check evaluate_on_test
-    # learning_rate = default_parameters[0]
-    # num_layers = default_parameters[1]
-    # num_nodes = default_parameters[2]
-    # activation = default_parameters[3]
-    # best_model = create_model(learning_rate, num_layers, num_nodes, activation)
-    # history = best_model.fit(X[:100], Y[:100])
-    # y_pred = best_model.predict(X[100:200])
-    # evaluate_on_test(Y[100:200], y_pred, ds_name, index_cv)
 
     # TODO: only for test (remove)
-    X = X[:204]
-    Y = Y[:204]
-    labels = labels[:204]
+    X = X[:200]
+    Y = Y[:200]
+    labels = labels[:200]
 
     for train_val_index, test_index in kf_external.split(X, labels):
         try:
@@ -328,6 +320,7 @@ for ds_name in datasets_info:
             num_nodes = opt_par[2]
             activation = opt_par[3]
             best_model = create_model(learning_rate, num_layers, num_nodes, activation)
+            X_train_val, Y_train_val = divied_4(X_train_val, Y_train_val)
             start_train = time()
             history = best_model.fit(X_train_val, Y_train_val)
             end_train = time() - start_train
