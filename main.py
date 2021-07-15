@@ -1,76 +1,69 @@
+import json
 import os
+from time import time
+
 import numpy as np
-import seaborn as sns
-import pandas as pd
-import tensorflow as tf
+
 # TODO pip install git+http://github.com/nikitadurasov/masksembles
 from masksembles.keras import Masksembles1D, Masksembles2D
 from sklearn.metrics import confusion_matrix, precision_recall_curve
 from tensorflow import keras
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-import matplotlib.colors as colors
-import matplotlib as mpl
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Dense
-from tensorflow.keras.callbacks import TensorBoard
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.models import load_model
-from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras import layers
 # TODO: pip install scikit-optimize
-from skopt import gp_minimize, forest_minimize
+from skopt import gp_minimize
 from skopt.space import Real, Categorical, Integer
 from skopt.plots import plot_convergence
-from skopt.plots import plot_objective, plot_evaluations
+from skopt.plots import plot_evaluations
 from skopt.plots import plot_objective
 from skopt.utils import use_named_args
 from skopt.plots import plot_objective_2D
 
-from sklearn import preprocessing, metrics
-from sklearn.model_selection import train_test_split, StratifiedKFold, KFold
+from sklearn import  metrics
+from sklearn.model_selection import StratifiedKFold
 
 # TODO: pip install tensorflow_datasets
 import tensorflow_datasets as tfds
 from keras.utils.np_utils import to_categorical
 
-# regionConfig parameters
-# all dataset were taken from: https://www.tensorflow.org/datasets/catalog/overview
-datasets_info = {
-    "mnist": [70000, 10],
-    # "beans": [1295, 3],
-    # "binary_alpha_digits": [1404, 36],
-    # "cifar10": [60000, 10],
-    # "citrus_leaves": [425, 4],
-    # "stanford_dogs": [12000, 120],
-    # "cassava": [9430, 5],
-    # "rock_paper_scissors": [2520, 3],
-
-    # "horses_or_humans": [1280, 2],
-    # "dmlab":[65550,6],
-    # "food101":[75750,101],
-    # "cmaterdb":[5000,10],
-    # "stanford_online_products": [59551, 12],
-    # "stl10": [5000, 10],
-    # "tf_flowers": [2670, 5],
-    # "cats_vs_dogs":[23262,2],
-    # "uc_merced": [2100, 21],
-    # "kmnist": [60000, 10],
-    # "oxford_flowers102": [8189, 102],
-    # "food101": [75750, 101],
-    # "deep_weeds": [17509, 9],
-    # "eurosat": [27000, 10],
-
-}  # "dataset_name": [n_samples, NUM_CLASSES]
-
-MAX_SAMPLES_NUM = 320
-# path of the best model, contains optimized hyper-parameter.
-path_best_model = 'BayesianOptimization/19_best_model.h5'
-# define global variable to store accuracy, and random state
 random_state = 42
 best_accuracy = 0.0
 
-# hyper-parameters tuned in this project:
+# region dataset
+# all dataset were taken from: https://www.tensorflow.org/datasets/catalog/overview
+datasets_info = {
+    "mnist": [70000, 10],
+    "beans": [1295, 3],
+    "binary_alpha_digits": [1404, 36],
+    "cifar10": [60000, 10],
+    "citrus_leaves": [425, 4],
+    "stanford_dogs": [12000, 120],
+    "cassava": [9430, 5],
+    "rock_paper_scissors": [2520, 3],
+
+    "horses_or_humans": [1280, 2],
+    "dmlab":[65550,6],
+    "food101":[75750,101],
+    "cmaterdb":[5000,10],
+    "stanford_online_products": [59551, 12],
+    "stl10": [5000, 10],
+    "tf_flowers": [2670, 5],
+    "cats_vs_dogs":[23262,2],
+    "uc_merced": [2100, 21],
+    "kmnist": [60000, 10],
+    "oxford_flowers102": [8189, 102],
+    # "food101": [75750, 101],
+    "deep_weeds": [17509, 9],
+    "eurosat": [27000, 10],
+
+}  # "dataset_name": [n_samples, NUM_CLASSES]
+MAX_SAMPLES_NUM = 320
+# endregion
+
+# region hyper-parameters tuned in this project:
 # 1. Learning rate
 # 2. Number of dense layers
 # 3. Number of nodes for each layers
@@ -83,66 +76,38 @@ dim_activation = Categorical(categories=['relu', 'sigmoid'], name='activation')
 
 # hold all examnined hyper-parameters dimention i a list
 dimensions = [dim_learning_rate, dim_num_dense_layers, dim_num_dense_nodes, dim_activation]
-
-# TODO: change default parameters
 default_parameters = [1e-5, 1, 16, 'relu']
-
-
-def log_dir_name(learning_rate, num_dense_layers, num_dense_nodes, activation):
-    '''
-    This is a function to log training progress so that can be viewed by TnesorBoard.
-    '''
-    # The dir-name for the TensorBoard log-dir.
-    s = "./BayesianOptimization/19_logs/lr_{0:.0e}_layers_{1}_nodes_{2}_{3}/"
-    log_dir = s.format(learning_rate,
-                       num_dense_layers,
-                       num_dense_nodes,
-                       activation)
-    return log_dir
 
 
 # endregion
 
 # region Config model
-# TODO: change create model and the tuning parameters
-
 def create_model(learning_rate, num_dense_layers, num_dense_nodes, activation):
     '''
     The method builds the model according to the examined hyper-parameters.
-
+    this model was taken from https://github.com/nikitadurasov/masksembles/blob/main/notebooks/MNIST_Masksembles.ipynb
     '''
-    # TODO: this model was taken from https://github.com/nikitadurasov/masksembles/blob/main/notebooks/MNIST_Masksembles.ipynb
-    # TODO: optimized parameters should be considered here.
-    model = keras.Sequential(
-        [
-            keras.Input(shape=input_shape),  # input shape changes according to the dataset
-            layers.Conv2D(32, kernel_size=(3, 3), activation="elu"),
-            Masksembles2D(4, 2.0),
-            layers.MaxPooling2D(pool_size=(2, 2)),
-
-            layers.Conv2D(64, kernel_size=(3, 3), activation="elu"),
-            Masksembles2D(4, 2.0),
-            layers.MaxPooling2D(pool_size=(2, 2)),
-
-            layers.Flatten(),
-            Masksembles1D(4, 2.),
-            layers.Dense(n_classes, activation="softmax"),
-        ]
-    )
-    model.summary()
-
-    # model = Sequential()
-    # model.add(InputLayer(input_shape=(input_shape)))  # input shape changes according to the dataset
+    model = keras.Sequential()
+    model.add(keras.Input(shape=input_shape))
+    model.add(layers.Conv2D(32, kernel_size=(3, 3), activation="elu"))
+    model.add(Masksembles2D(4, 2.0))
+    model.add(layers.MaxPooling2D(pool_size=(2, 2)))
+    model.add(layers.Conv2D(64, kernel_size=(3, 3), activation="elu"))
+    model.add(Masksembles2D(4, 2.0))
+    model.add(layers.MaxPooling2D(pool_size=(2, 2)))
+    model.add(layers.Flatten())
+    model.add(Masksembles1D(4, 2.))
     # Add num_dense_layers dense layers
-    # for i in range(num_dense_layers):
-    #     name = 'layer_dense_{0}'.format(i + 1)
-    #     model.add(Dense(num_dense_nodes,
-    #                     activation=activation,
-    #                     name=name))
-    # model.add(Dense(labels.shape[1], activation='softmax'))
+    for i in range(num_dense_layers):
+        name = 'layer_dense_{0}'.format(i + 1)
+        model.add(Dense(num_dense_nodes,
+                        activation=activation,
+                        name=name))
+    model.add(layers.Dense(n_classes, activation="softmax"))
+    # model.summary()
 
     optimizer = Adam(learning_rate=learning_rate)
-    # TODO: change metric
+    # TODO: change metric to maximize
     model.compile(optimizer=optimizer,
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])
@@ -151,8 +116,12 @@ def create_model(learning_rate, num_dense_layers, num_dense_nodes, activation):
 
 # endregion
 
-
-# TODO: change tuning parameters
+def divied_4(x_check, y_check):
+    while x_check.shape[0] % 4 != 0:
+        x_check = x_check[1:]
+        y_check = y_check[1:]
+    return x_check, y_check
+# region fitness - optimization
 '''
 Parameter optimization is based on:
 https://github.com/mardani72/Hyper-Parameter_optimization/blob/master/Hyper_Param_Facies_tf_final.ipynb
@@ -180,10 +149,10 @@ def fitness(learning_rate, num_dense_layers, num_dense_nodes, activation):
     print('activation:', activation)
     print()
 
-    kf = KFold(n_splits=3, shuffle=True, random_state=random_state)
+    kf = StratifiedKFold(n_splits=3, shuffle=True, random_state=random_state)
     average_accuracy = 0
-
-    for train_index, val_index in kf.split(X_train_val, Y_train_val):
+    y_label = np.argmax(Y_train_val, axis=1)
+    for train_index, val_index in kf.split(X_train_val, y_label):
         X_train, X_val = X_train_val[train_index], X_train_val[val_index]
         y_train, y_val = Y_train_val[train_index], Y_train_val[val_index]
 
@@ -192,22 +161,13 @@ def fitness(learning_rate, num_dense_layers, num_dense_nodes, activation):
                              num_dense_layers=num_dense_layers,
                              num_dense_nodes=num_dense_nodes,
                              activation=activation)
-
-        # Dir-name for the TensorBoard log-files.
-        # log_dir = log_dir_name(learning_rate, num_dense_layers,
-        #                        num_dense_nodes, activation)
-
-        # callback_log = TensorBoard(
-        #     log_dir=log_dir,
-        #     histogram_freq=0,
-        #     write_graph=True,
-        #     write_grads=False,
-        #     write_images=False)
+        X_train, y_train = divied_4(X_train, y_train)
+        X_val, y_val = divied_4(X_val, y_val)
 
         # TODO: change number epoch
         history = model.fit(x=X_train,
                             y=y_train,
-                            epochs=1,
+                            epochs=100,
                             batch_size=32,
                             validation_data=(X_val, y_val),
                             # callbacks=[callback_log]
@@ -225,23 +185,23 @@ def fitness(learning_rate, num_dense_layers, num_dense_nodes, activation):
     print()
     print("Average Accuracy: {0:.2%}".format(accuracy))
     print()
-
-    # Update best accuracy rate
     global best_accuracy
     if accuracy > best_accuracy:
         best_accuracy = accuracy
-
-    # Returns negative because skpot performs minimization rather than maximization.
     return -accuracy
 
 
-def best_result(search_result, index_cv=0):
-    plt.clf()
-    if not os.path.exists("BayesianOptimization/" + str(index_cv)):
-        os.mkdir("BayesianOptimization/" + str(index_cv))
-    plot_convergence(search_result)
-    plt.savefig("BayesianOptimization/" + str(index_cv) + "/Converge.png", dpi=400)
+# endregion
 
+def best_result(search_result,ds_name,  index_cv=0):
+
+    if not os.path.exists(os.path.join("BayesianOptimization", ds_name)):
+        os.mkdir(os.path.join("BayesianOptimization", ds_name))
+    if not os.path.exists(os.path.join("BayesianOptimization", ds_name, str(index_cv))):
+        os.mkdir(os.path.join("BayesianOptimization", ds_name, str(index_cv)))
+    plot_convergence(search_result)
+    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv), "Converge.png"))
+    plt.clf()
     print(f" search result {search_result.x}")
     print(f"The best fitness value associated with these hyper-parameters {search_result.fun}")
 
@@ -249,25 +209,53 @@ def best_result(search_result, index_cv=0):
                             dimension_identifier1='learning_rate',
                             dimension_identifier2='num_dense_nodes',
                             levels=50)
-    plt.savefig("BayesianOptimization/" + str(index_cv) + "/Lr_numnods.png", dpi=400)
-
+    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv),"Lr_numnods.png"))
+    plt.clf()
     # create a list for plotting
     dim_names = ['learning_rate', 'num_dense_layers', 'num_dense_nodes', 'activation']
     plot_objective(result=search_result, dimensions=dim_names)
-    plt.savefig("BayesianOptimization/" + str(index_cv) + "/all_dimen.png", dpi=400)
+    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv),"all_dimen.png"))
+    plt.clf()
     plot_evaluations(result=search_result, dimensions=dim_names)
 
 
-def evaluate_on_test(y_true, y_pred):
+def evaluate_on_test(y_true, y_pred, ds_name, index_cv):
+    def pr_auc_score(y_true, y_score):
+        precision, recall, thresholds = metrics.precision_recall_curve(y_true, y_score)
+        return metrics.auc(recall, precision)
     scores = {}
-    scores['accuracy_score'] = metrics.accuracy_score(y_true, y_pred)
-    scores['precision_score'] = metrics.precision_score(y_true, y_pred)
-    scores['recall_score'] = metrics.recall_score(y_true, y_pred)
-    scores['roc_auc_score'] = metrics.roc_auc_score(y_true, y_pred)
-    scores['tn'], scores['fp'], scores['fn'], scores['tp'] = [int(i) for i in
-                                                              list(confusion_matrix(y_true, y_pred).ravel())]
-    scores['fpr'], scores['tpr'], thresholds = metrics.roc_curve(y_true, y_pred)
-    scores['precision'], scores['recall'], scores['thresholds'] = precision_recall_curve(y_true, y_pred)
+    n_classes = [i for i in range(y_true.shape[1])]
+    index_y_pred = np.argmax(y_pred, axis=1)
+    max_y_pred = np.zeros((index_y_pred.size, len(n_classes)))
+    max_y_pred[np.arange(index_y_pred.size), index_y_pred] = 1
+    index_y_true = np.argmax(y_true, axis=1)
+
+    scores['accuracy_score'] = metrics.accuracy_score(index_y_true, index_y_pred)
+    cnf_matrix = confusion_matrix(index_y_true, index_y_pred)
+    FP = (cnf_matrix.sum(axis=0) - np.diag(cnf_matrix)).astype(float)
+    FN = (cnf_matrix.sum(axis=1) - np.diag(cnf_matrix)).astype(float)
+    TP = (np.diag(cnf_matrix)).astype(float)
+    TN = (cnf_matrix.sum() - (FP + FN + TP)).astype(float)
+    scores['fpr'], scores['tpr'] = sum(FP/(FP+TN))/len(n_classes), sum(TP/(TP+FN))/len(n_classes)
+    scores['precision_score'] = metrics.precision_score(y_true, max_y_pred, average='macro')
+    scores['recall_score'] = metrics.recall_score(y_true, max_y_pred, average='macro')
+    scores['auc_score'] = metrics.roc_auc_score(y_true, y_pred)
+
+    precision = {}
+    recall = {}
+    pr = 0
+    plt.clf()
+    for i in n_classes:
+        pr += pr_auc_score(y_true[:, i], y_pred[:, i])
+        precision[i], recall[i], _ = precision_recall_curve(y_true[:, i], y_pred[:, i])
+        plt.plot(recall[i], precision[i], lw=2, label='class {}'.format(i))
+    scores['pr_auc_score'] = pr/len(n_classes)
+    plt.xlabel("recall")
+    plt.ylabel("precision")
+    plt.legend(loc="best")
+    plt.title("precision vs. recall curve")
+    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv),"precision_recall.png"))
+    plt.clf()
     return scores
 
 
@@ -277,6 +265,7 @@ def evaluate_on_test(y_true, y_pred):
 if not os.path.exists("BayesianOptimization"):
     os.mkdir("BayesianOptimization")
 
+all_score = {}
 for ds_name in datasets_info:
     print(f"uploading dataset: {ds_name}")
     # constrain the size of train & test sets
@@ -296,38 +285,68 @@ for ds_name in datasets_info:
     print(f"data shape: {X.shape}")
 
     # TODO: preprocess data
+    X = X/255
 
     # perform nested cross validation for hyper-parameter optimization and generalization
-    # TODO: add time:Training time and Inference time for 1000 instances
-    kf_external = KFold(n_splits=10, shuffle=True, random_state=random_state)
+    # TODO: change 3 to 10
+    kf_external = StratifiedKFold(n_splits=10, shuffle=True, random_state=random_state)
     index_cv = 0
     results = {}
 
-    for train_val_index, test_index in kf_external.split(X, Y):
-        X_train_val, X_test = X[train_val_index], X[test_index]
-        Y_train_val, Y_test = Y[train_val_index], Y[test_index]
-        best_accuracy = 0.0
-        search_result = gp_minimize(func=fitness,
-                                    dimensions=dimensions,
-                                    acq_func='EI',  # Expected Improvement.
-                                    # TODO change to 50
-                                    n_calls=11,
-                                    x0=default_parameters)
-        best_result(search_result, index_cv=index_cv)
-        index_cv += 1
-        results[tuple(search_result.x)] = best_accuracy
+    # # TODO: only for test (remove)
+    # X = X[:200]
+    # Y = Y[:200]
+    # labels = labels[:200]
 
-        # best_model = load_model(path_best_model)
-        opt_par = search_result.x
-        learning_rate = opt_par[0]
-        num_layers = opt_par[1]
-        num_nodes = opt_par[2]
-        activation = opt_par[3]
-        best_model = create_model(learning_rate, num_layers, num_nodes, activation)
-        history = best_model.fit(X_train_val, Y_train_val)
-        y_pred = best_model.predict(X_test)
-        # evaluate_on_test(Y_test, y_pred)
+    for train_val_index, test_index in kf_external.split(X, labels):
+        try:
+            X_train_val, X_test = X[train_val_index], X[test_index]
+            Y_train_val, Y_test = Y[train_val_index], Y[test_index]
+            X_test, Y_test = divied_4(X_test, Y_test)
+            best_accuracy = 0.0
+            search_result = gp_minimize(func=fitness,
+                                        dimensions=dimensions,
+                                        acq_func='EI',  # Expected Improvement.
+                                        # TODO change to 50
+                                        n_calls=50,
+                                        x0=default_parameters)
+            best_result(search_result,ds_name, index_cv=index_cv)
+
+            results[tuple(search_result.x)] = best_accuracy
+
+            opt_par = search_result.x
+            learning_rate = opt_par[0]
+            num_layers = opt_par[1]
+            num_nodes = opt_par[2]
+            activation = opt_par[3]
+            best_model = create_model(learning_rate, num_layers, num_nodes, activation)
+            X_train_val, Y_train_val = divied_4(X_train_val, Y_train_val)
+            start_train = time()
+            history = best_model.fit(X_train_val, Y_train_val)
+            end_train = time() - start_train
+            y_pred = best_model.predict(X_test)
+            score = evaluate_on_test(Y_test, y_pred, ds_name, index_cv)
+            score['Training_time'] = end_train
+
+            if len(test_index) > 1000:
+                X_test = X_test[:1000]
+            start_test = time()
+            best_model.predict(X_test)
+            end_test = time() - start_test
+            score['inference_time'] = end_test
+            all_score[f"{ds_name}:{index_cv}"] =[float(i) if not isinstance(i, str) else i for i in search_result.x] + \
+                                                [float(i) for i in list(score.values())]
+            index_cv += 1
+        except Exception as e:
+            import traceback
+            print(traceback.format_exc())
+            print(f"Error {e}")
+            pass
+    with open(os.path.join("BayesianOptimization", "scores.json"), 'w') as f:  # for tracking
+        json.dump(all_score, f)
     print(results)
+with open(os.path.join("BayesianOptimization", "scores.json"), 'w') as f:
+    json.dump(all_score, f)
 
 # 1. Do 10 cross:
 #     1.1 X_train_val, x_test, y_train_val, y_test
