@@ -1,8 +1,10 @@
 import json
 import os
 from time import time
-
 import numpy as np
+import tensorflow as tf
+
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 # TODO pip install git+http://github.com/nikitadurasov/masksembles
 from masksembles.keras import Masksembles1D, Masksembles2D
@@ -16,13 +18,10 @@ from tensorflow.keras import layers
 # TODO: pip install scikit-optimize
 from skopt import gp_minimize
 from skopt.space import Real, Categorical, Integer
-from skopt.plots import plot_convergence
-from skopt.plots import plot_evaluations
-from skopt.plots import plot_objective
+from skopt.plots import plot_convergence, plot_evaluations, plot_objective, plot_objective_2D
 from skopt.utils import use_named_args
-from skopt.plots import plot_objective_2D
 
-from sklearn import  metrics
+from sklearn import metrics
 from sklearn.model_selection import StratifiedKFold
 
 # TODO: pip install tensorflow_datasets
@@ -43,22 +42,19 @@ datasets_info = {
     "stanford_dogs": [12000, 120],
     "cassava": [9430, 5],
     "rock_paper_scissors": [2520, 3],
-
     "horses_or_humans": [1280, 2],
-    "dmlab":[65550,6],
-    "food101":[75750,101],
-    "cmaterdb":[5000,10],
-    "stanford_online_products": [59551, 12],
-    "stl10": [5000, 10],
-    "tf_flowers": [2670, 5],
-    "cats_vs_dogs":[23262,2],
+    "dmlab": [65550, 6],
+    "food101": [75750, 101],
+    "cmaterdb": [5000, 10],
+    "cats_vs_dogs": [23262, 2],
     "uc_merced": [2100, 21],
     "kmnist": [60000, 10],
     "oxford_flowers102": [8189, 102],
-    # "food101": [75750, 101],
     "deep_weeds": [17509, 9],
     "eurosat": [27000, 10],
-
+    "stanford_online_products": [59551, 12],
+    "stl10": [5000, 10],
+    "tf_flowers": [2670, 5],
 }  # "dataset_name": [n_samples, NUM_CLASSES]
 MAX_SAMPLES_NUM = 320
 # endregion
@@ -121,6 +117,8 @@ def divied_4(x_check, y_check):
         x_check = x_check[1:]
         y_check = y_check[1:]
     return x_check, y_check
+
+
 # region fitness - optimization
 '''
 Parameter optimization is based on:
@@ -193,8 +191,7 @@ def fitness(learning_rate, num_dense_layers, num_dense_nodes, activation):
 
 # endregion
 
-def best_result(search_result,ds_name,  index_cv=0):
-
+def best_result(search_result, ds_name, index_cv=0):
     if not os.path.exists(os.path.join("BayesianOptimization", ds_name)):
         os.mkdir(os.path.join("BayesianOptimization", ds_name))
     if not os.path.exists(os.path.join("BayesianOptimization", ds_name, str(index_cv))):
@@ -209,12 +206,12 @@ def best_result(search_result,ds_name,  index_cv=0):
                             dimension_identifier1='learning_rate',
                             dimension_identifier2='num_dense_nodes',
                             levels=50)
-    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv),"Lr_numnods.png"))
+    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv), "Lr_numnods.png"))
     plt.clf()
     # create a list for plotting
     dim_names = ['learning_rate', 'num_dense_layers', 'num_dense_nodes', 'activation']
     plot_objective(result=search_result, dimensions=dim_names)
-    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv),"all_dimen.png"))
+    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv), "all_dimen.png"))
     plt.clf()
     plot_evaluations(result=search_result, dimensions=dim_names)
 
@@ -223,6 +220,7 @@ def evaluate_on_test(y_true, y_pred, ds_name, index_cv):
     def pr_auc_score(y_true, y_score):
         precision, recall, thresholds = metrics.precision_recall_curve(y_true, y_score)
         return metrics.auc(recall, precision)
+
     scores = {}
     n_classes = [i for i in range(y_true.shape[1])]
     index_y_pred = np.argmax(y_pred, axis=1)
@@ -236,7 +234,7 @@ def evaluate_on_test(y_true, y_pred, ds_name, index_cv):
     FN = (cnf_matrix.sum(axis=1) - np.diag(cnf_matrix)).astype(float)
     TP = (np.diag(cnf_matrix)).astype(float)
     TN = (cnf_matrix.sum() - (FP + FN + TP)).astype(float)
-    scores['fpr'], scores['tpr'] = sum(FP/(FP+TN))/len(n_classes), sum(TP/(TP+FN))/len(n_classes)
+    scores['fpr'], scores['tpr'] = sum(FP / (FP + TN)) / len(n_classes), sum(TP / (TP + FN)) / len(n_classes)
     scores['precision_score'] = metrics.precision_score(y_true, max_y_pred, average='macro')
     scores['recall_score'] = metrics.recall_score(y_true, max_y_pred, average='macro')
     scores['auc_score'] = metrics.roc_auc_score(y_true, y_pred)
@@ -249,12 +247,12 @@ def evaluate_on_test(y_true, y_pred, ds_name, index_cv):
         pr += pr_auc_score(y_true[:, i], y_pred[:, i])
         precision[i], recall[i], _ = precision_recall_curve(y_true[:, i], y_pred[:, i])
         plt.plot(recall[i], precision[i], lw=2, label='class {}'.format(i))
-    scores['pr_auc_score'] = pr/len(n_classes)
+    scores['pr_auc_score'] = pr / len(n_classes)
     plt.xlabel("recall")
     plt.ylabel("precision")
     plt.legend(loc="best")
     plt.title("precision vs. recall curve")
-    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv),"precision_recall.png"))
+    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv), "precision_recall.png"))
     plt.clf()
     return scores
 
@@ -273,19 +271,21 @@ for ds_name in datasets_info:
     n_classes = datasets_info[ds_name][1]
 
     # load a sample of the dataset of size n_samples
+
     X, labels = tfds.as_numpy(tfds.load(ds_name,
                                         # split=f'train+test[:{n_samples}]',
                                         split=f'train[:{n_samples}]',
                                         batch_size=-1,
                                         as_supervised=True,
-                                        shuffle_files=True, ))
+                                        shuffle_files=True))
+
     # transform to categorical one-hot vectors
     Y = to_categorical(labels, num_classes=n_classes)
     input_shape = (X.shape[1], X.shape[2], X.shape[3])
     print(f"data shape: {X.shape}")
 
-    # TODO: preprocess data
-    X = X/255
+    # Preprocess data. scaling all images to a range of (0,1)
+    X = X / 255
 
     # perform nested cross validation for hyper-parameter optimization and generalization
     # TODO: change 3 to 10
@@ -310,7 +310,7 @@ for ds_name in datasets_info:
                                         # TODO change to 50
                                         n_calls=50,
                                         x0=default_parameters)
-            best_result(search_result,ds_name, index_cv=index_cv)
+            best_result(search_result, ds_name, index_cv=index_cv)
 
             results[tuple(search_result.x)] = best_accuracy
 
@@ -328,20 +328,27 @@ for ds_name in datasets_info:
             score = evaluate_on_test(Y_test, y_pred, ds_name, index_cv)
             score['Training_time'] = end_train
 
+            # take up to 1000 records to test
             if len(test_index) > 1000:
                 X_test = X_test[:1000]
+
+            # calc inference time
             start_test = time()
             best_model.predict(X_test)
             end_test = time() - start_test
             score['inference_time'] = end_test
-            all_score[f"{ds_name}:{index_cv}"] =[float(i) if not isinstance(i, str) else i for i in search_result.x] + \
-                                                [float(i) for i in list(score.values())]
+            all_score[f"{ds_name}:{index_cv}"] = [float(i) if not isinstance(i, str) else i for i in search_result.x] + \
+                                                 [float(i) for i in list(score.values())]
+            all_score[f"{ds_name}:{index_cv}"] = []
             index_cv += 1
         except Exception as e:
             import traceback
+
             print(traceback.format_exc())
             print(f"Error {e}")
             pass
+    # with open(os.path.join("BayesianOptimization", f"{ds_name}_scores.json"), 'w') as f:  # for tracking
+    #     json.dump(all_score, f)
     with open(os.path.join("BayesianOptimization", "scores.json"), 'w') as f:  # for tracking
         json.dump(all_score, f)
     print(results)
