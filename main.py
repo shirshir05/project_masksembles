@@ -1,10 +1,8 @@
 import json
 import os
 from time import time
-import numpy as np
-import tensorflow as tf
 
-tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+import numpy as np
 
 # TODO pip install git+http://github.com/nikitadurasov/masksembles
 from masksembles.keras import Masksembles1D, Masksembles2D
@@ -18,8 +16,11 @@ from tensorflow.keras import layers
 # TODO: pip install scikit-optimize
 from skopt import gp_minimize
 from skopt.space import Real, Categorical, Integer
-from skopt.plots import plot_convergence, plot_evaluations, plot_objective, plot_objective_2D
+from skopt.plots import plot_convergence
+from skopt.plots import plot_evaluations
+from skopt.plots import plot_objective
 from skopt.utils import use_named_args
+from skopt.plots import plot_objective_2D
 
 from sklearn import metrics
 from sklearn.model_selection import StratifiedKFold
@@ -34,27 +35,31 @@ best_accuracy = 0.0
 # region dataset
 # all dataset were taken from: https://www.tensorflow.org/datasets/catalog/overview
 datasets_info = {
-    "mnist": [70000, 10],
     "beans": [1295, 3],
     "binary_alpha_digits": [1404, 36],
     "cifar10": [60000, 10],
     "citrus_leaves": [425, 4],
-    "stanford_dogs": [12000, 120],
     "cassava": [9430, 5],
     "rock_paper_scissors": [2520, 3],
     "horses_or_humans": [1280, 2],
     "dmlab": [65550, 6],
     "food101": [75750, 101],
     "cmaterdb": [5000, 10],
+
+
+    "stl10": [5000, 10],
+    "tf_flowers": [2670, 5],
     "cats_vs_dogs": [23262, 2],
     "uc_merced": [2100, 21],
     "kmnist": [60000, 10],
     "oxford_flowers102": [8189, 102],
     "deep_weeds": [17509, 9],
     "eurosat": [27000, 10],
-    "stanford_online_products": [59551, 12],
-    "stl10": [5000, 10],
-    "tf_flowers": [2670, 5],
+    "mnist": [70000, 10]
+
+    # ,"stanford_online_products": [59551, 12],  # TODO: check not support  as_supervised=True
+    # ,"stanford_dogs": [12000, 120], # TODO: check Unable to allocate 22.5 GiB for an array with shape (3019898880,) and data type float64
+
 }  # "dataset_name": [n_samples, NUM_CLASSES]
 MAX_SAMPLES_NUM = 320
 # endregion
@@ -277,15 +282,16 @@ for ds_name in datasets_info:
                                         split=f'train[:{n_samples}]',
                                         batch_size=-1,
                                         as_supervised=True,
-                                        shuffle_files=True))
-
+                                        shuffle_files=True, ))
     # transform to categorical one-hot vectors
     Y = to_categorical(labels, num_classes=n_classes)
-    input_shape = (X.shape[1], X.shape[2], X.shape[3])
-    print(f"data shape: {X.shape}")
+    print(f"data shape before: {X.shape}")
 
-    # Preprocess data. scaling all images to a range of (0,1)
+    # TODO: preprocess data
     X = X / 255
+    X = np.resize(X, (X.shape[0], 32, 32, 1))
+    print(f"data shape after: {X.shape}")
+    input_shape = (X.shape[1], X.shape[2], X.shape[3])
 
     # perform nested cross validation for hyper-parameter optimization and generalization
     # TODO: change 3 to 10
@@ -322,24 +328,20 @@ for ds_name in datasets_info:
             best_model = create_model(learning_rate, num_layers, num_nodes, activation)
             X_train_val, Y_train_val = divied_4(X_train_val, Y_train_val)
             start_train = time()
-            history = best_model.fit(X_train_val, Y_train_val)
+            history = best_model.fit(X_train_val, Y_train_val, epochs=100)
             end_train = time() - start_train
             y_pred = best_model.predict(X_test)
             score = evaluate_on_test(Y_test, y_pred, ds_name, index_cv)
             score['Training_time'] = end_train
 
-            # take up to 1000 records to test
             if len(test_index) > 1000:
                 X_test = X_test[:1000]
-
-            # calc inference time
             start_test = time()
             best_model.predict(X_test)
             end_test = time() - start_test
             score['inference_time'] = end_test
             all_score[f"{ds_name}:{index_cv}"] = [float(i) if not isinstance(i, str) else i for i in search_result.x] + \
                                                  [float(i) for i in list(score.values())]
-            all_score[f"{ds_name}:{index_cv}"] = []
             index_cv += 1
         except Exception as e:
             import traceback
@@ -347,8 +349,6 @@ for ds_name in datasets_info:
             print(traceback.format_exc())
             print(f"Error {e}")
             pass
-    # with open(os.path.join("BayesianOptimization", f"{ds_name}_scores.json"), 'w') as f:  # for tracking
-    #     json.dump(all_score, f)
     with open(os.path.join("BayesianOptimization", "scores.json"), 'w') as f:  # for tracking
         json.dump(all_score, f)
     print(results)
