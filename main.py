@@ -322,7 +322,7 @@ for ds_name in datasets_info:
             best_model = create_model(learning_rate, num_layers, num_nodes, activation)
             X_train_val, Y_train_val = divied_4(X_train_val, Y_train_val)
             start_train = time()
-            history = best_model.fit(X_train_val, Y_train_val)
+            history = best_model.fit(X_train_val, Y_train_val, epochs=100)
             end_train = time() - start_train
             y_pred = best_model.predict(X_test)
             score = evaluate_on_test(Y_test, y_pred, ds_name, index_cv)
