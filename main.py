@@ -3,7 +3,9 @@ import os
 from time import time
 
 import numpy as np
+import tensorflow as tf
 
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 # TODO pip install git+http://github.com/nikitadurasov/masksembles
 from masksembles.keras import Masksembles1D, Masksembles2D
 from sklearn.metrics import confusion_matrix, precision_recall_curve
@@ -35,24 +37,26 @@ best_accuracy = 0.0
 # region dataset
 # all dataset were taken from: https://www.tensorflow.org/datasets/catalog/overview
 datasets_info = {
-    "beans": [1295, 3],
-    "binary_alpha_digits": [1404, 36],
-    "cifar10": [60000, 10],
-    "citrus_leaves": [425, 4],
-    "cassava": [9430, 5],
-    "rock_paper_scissors": [2520, 3],
-    "horses_or_humans": [1280, 2],
-    "dmlab": [65550, 6],
-    "food101": [75750, 101],
-    "cmaterdb": [5000, 10],
+    # "beans": [1295, 3],
+    # "binary_alpha_digits": [1404, 36],
+    # "cifar10": [60000, 10],
+    # "citrus_leaves": [425, 4],
+    # "cassava": [9430, 5],
+    # "rock_paper_scissors": [2520, 3],
+    # "horses_or_humans": [1280, 2],
+    # "dmlab": [65550, 6],
+    # "food101": [75750, 101],
+    # "cmaterdb": [5000, 10],
 
 
-    "stl10": [5000, 10],
-    "tf_flowers": [2670, 5],
-    "cats_vs_dogs": [23262, 2],
-    "uc_merced": [2100, 21],
-    "kmnist": [60000, 10],
-    "oxford_flowers102": [8189, 102],
+    # "stl10": [5000, 10],
+
+    # "tf_flowers": [2670, 5],
+    # "cats_vs_dogs": [23262, 2],
+    # "uc_merced": [2100, 21],
+    # "kmnist": [60000, 10],
+
+    # "oxford_flowers102": [8189, 102], #TODO: n_splits=10 cannot be greater than the number of members in each class.
     "deep_weeds": [17509, 9],
     "eurosat": [27000, 10],
     "mnist": [70000, 10]
