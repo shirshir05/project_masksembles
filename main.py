@@ -29,7 +29,6 @@ from sklearn.model_selection import StratifiedKFold
 import tensorflow_datasets as tfds
 from keras.utils.np_utils import to_categorical
 
-
 # TODO: code documentation
 random_state = 42
 best_accuracy = 0.0
@@ -37,7 +36,7 @@ best_accuracy = 0.0
 # region dataset
 # all dataset were taken from: https://www.tensorflow.org/datasets/catalog/overview
 datasets_info = {
-    
+
     "binary_alpha_digits": [1404, 36],
     "cifar10": [60000, 10],
     "citrus_leaves": [425, 4],
@@ -48,7 +47,6 @@ datasets_info = {
     "food101": [75750, 101],
     "cmaterdb": [5000, 10],
 
-
     "stl10": [5000, 10],
     "tf_flowers": [2670, 5],
     "cats_vs_dogs": [23262, 2],
@@ -57,7 +55,7 @@ datasets_info = {
     "oxford_flowers102": [8189, 102],
     "deep_weeds": [17509, 9],
     "eurosat": [27000, 10],
-    "mnist": [70000, 10], 
+    "mnist": [70000, 10],
     "beans": [1295, 3],
 
     # ,"stanford_online_products": [59551, 12],  # TODO: check not support  as_supervised=True
@@ -224,12 +222,11 @@ def best_result(search_result, ds_name, index_cv=0):
     plot_evaluations(result=search_result, dimensions=dim_names)
 
 
-def evaluate_on_test(y_true, y_pred, ds_name, index_cv):
+def evaluate_on_test(y_true, y_pred, ds_name, index_cv, scores):
     def pr_auc_score(y_true, y_score):
         precision, recall, thresholds = metrics.precision_recall_curve(y_true, y_score)
         return metrics.auc(recall, precision)
 
-    scores = {}
     n_classes = [i for i in range(y_true.shape[1])]
     index_y_pred = np.argmax(y_pred, axis=1)
     max_y_pred = np.zeros((index_y_pred.size, len(n_classes)))
@@ -330,7 +327,6 @@ for ds_name in datasets_info:
                                         # TODO change to 50
                                         n_calls=50,
                                         x0=default_parameters)
-           
 
             results[tuple(search_result.x)] = best_accuracy
 
@@ -345,7 +341,12 @@ for ds_name in datasets_info:
             history = best_model.fit(X_train_val, Y_train_val, epochs=100)
             end_train = time() - start_train
             y_pred = best_model.predict(X_test)
-            score = evaluate_on_test(Y_test, y_pred, ds_name, index_cv)
+            score = {'accuracy_score': -1, "fpr": -1, 'tpr': -1, 'precision_score': -1, 'recall_score': -1,
+                     'auc_score': -1, 'pr_auc_score': -1, 'Training_time': -1, 'inference_time': -1}
+            try:
+                score = evaluate_on_test(Y_test, y_pred, ds_name, index_cv, score)
+            except:
+                pass
             score['Training_time'] = end_train
 
             if len(test_index) > 1000:
@@ -357,6 +358,7 @@ for ds_name in datasets_info:
             all_score[f"{ds_name}:{index_cv}"] = [float(i) if not isinstance(i, str) else i for i in search_result.x] + \
                                                  [float(i) for i in list(score.values())]
             index_cv += 1
+
             best_result(search_result, ds_name, index_cv=index_cv)
         except Exception as e:
             import traceback
