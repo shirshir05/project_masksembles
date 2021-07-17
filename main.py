@@ -3,9 +3,7 @@ import os
 from time import time
 
 import numpy as np
-import tensorflow as tf
 
-tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 # TODO pip install git+http://github.com/nikitadurasov/masksembles
 from masksembles.keras import Masksembles1D, Masksembles2D
 from sklearn.metrics import confusion_matrix, precision_recall_curve
@@ -31,35 +29,34 @@ from sklearn.model_selection import StratifiedKFold
 import tensorflow_datasets as tfds
 from keras.utils.np_utils import to_categorical
 
+# TODO: code documentation
 random_state = 42
 best_accuracy = 0.0
 
 # region dataset
 # all dataset were taken from: https://www.tensorflow.org/datasets/catalog/overview
 datasets_info = {
-    # "beans": [1295, 3],
-    # "binary_alpha_digits": [1404, 36],
-    # "cifar10": [60000, 10],
-    # "citrus_leaves": [425, 4],
-    # "cassava": [9430, 5],
-    # "rock_paper_scissors": [2520, 3],
-    # "horses_or_humans": [1280, 2],
-    # "dmlab": [65550, 6],
-    # "food101": [75750, 101],
-    # "cmaterdb": [5000, 10],
 
+    "binary_alpha_digits": [1404, 36],
+    "cifar10": [60000, 10],
+    "citrus_leaves": [425, 4],
+    "cassava": [9430, 5],
+    "rock_paper_scissors": [2520, 3],
+    "horses_or_humans": [1280, 2],
+    "dmlab": [65550, 6],
+    "food101": [75750, 101],
+    "cmaterdb": [5000, 10],
 
-    # "stl10": [5000, 10],
-
-    # "tf_flowers": [2670, 5],
-    # "cats_vs_dogs": [23262, 2],
-    # "uc_merced": [2100, 21],
-    # "kmnist": [60000, 10],
-
-    # "oxford_flowers102": [8189, 102], #TODO: n_splits=10 cannot be greater than the number of members in each class.
+    "stl10": [5000, 10],
+    "tf_flowers": [2670, 5],
+    "cats_vs_dogs": [23262, 2],
+    "uc_merced": [2100, 21],
+    "kmnist": [60000, 10],
+    # "oxford_flowers102": [8189, 102], # TODO: n_splits=10 cannot be greater than the number of members in each class.
     "deep_weeds": [17509, 9],
     "eurosat": [27000, 10],
-    "mnist": [70000, 10]
+    "mnist": [70000, 10],
+    "beans": [1295, 3],
 
     # ,"stanford_online_products": [59551, 12],  # TODO: check not support  as_supervised=True
     # ,"stanford_dogs": [12000, 120], # TODO: check Unable to allocate 22.5 GiB for an array with shape (3019898880,) and data type float64
@@ -225,12 +222,11 @@ def best_result(search_result, ds_name, index_cv=0):
     plot_evaluations(result=search_result, dimensions=dim_names)
 
 
-def evaluate_on_test(y_true, y_pred, ds_name, index_cv):
+def evaluate_on_test(y_true, y_pred, ds_name, index_cv, scores):
     def pr_auc_score(y_true, y_score):
         precision, recall, thresholds = metrics.precision_recall_curve(y_true, y_score)
         return metrics.auc(recall, precision)
 
-    scores = {}
     n_classes = [i for i in range(y_true.shape[1])]
     index_y_pred = np.argmax(y_pred, axis=1)
     max_y_pred = np.zeros((index_y_pred.size, len(n_classes)))
@@ -273,6 +269,17 @@ if not os.path.exists("BayesianOptimization"):
     os.mkdir("BayesianOptimization")
 
 all_score = {}
+
+# TODO: create in cluster - to prevent error
+# for ds_name in datasets_info:
+#     print(f"uploading dataset: {ds_name}")
+#     for i in range(10):
+#         if not os.path.exists(os.path.join("BayesianOptimization", ds_name)):
+#             os.mkdir(os.path.join("BayesianOptimization", ds_name))
+#         if not os.path.exists(os.path.join("BayesianOptimization", ds_name, str(i))):
+#             os.mkdir(os.path.join("BayesianOptimization", ds_name, str(i)))
+
+
 for ds_name in datasets_info:
     print(f"uploading dataset: {ds_name}")
     # constrain the size of train & test sets
@@ -320,7 +327,6 @@ for ds_name in datasets_info:
                                         # TODO change to 50
                                         n_calls=50,
                                         x0=default_parameters)
-            best_result(search_result, ds_name, index_cv=index_cv)
 
             results[tuple(search_result.x)] = best_accuracy
 
@@ -335,7 +341,12 @@ for ds_name in datasets_info:
             history = best_model.fit(X_train_val, Y_train_val, epochs=100)
             end_train = time() - start_train
             y_pred = best_model.predict(X_test)
-            score = evaluate_on_test(Y_test, y_pred, ds_name, index_cv)
+            score = {'accuracy_score': -1, "fpr": -1, 'tpr': -1, 'precision_score': -1, 'recall_score': -1,
+                     'auc_score': -1, 'pr_auc_score': -1, 'Training_time': -1, 'inference_time': -1}
+            try:
+                score = evaluate_on_test(Y_test, y_pred, ds_name, index_cv, score)
+            except:
+                pass
             score['Training_time'] = end_train
 
             if len(test_index) > 1000:
@@ -347,6 +358,8 @@ for ds_name in datasets_info:
             all_score[f"{ds_name}:{index_cv}"] = [float(i) if not isinstance(i, str) else i for i in search_result.x] + \
                                                  [float(i) for i in list(score.values())]
             index_cv += 1
+
+            best_result(search_result, ds_name, index_cv=index_cv)
         except Exception as e:
             import traceback
 
