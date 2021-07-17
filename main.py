@@ -29,13 +29,15 @@ from sklearn.model_selection import StratifiedKFold
 import tensorflow_datasets as tfds
 from keras.utils.np_utils import to_categorical
 
+
+# TODO: code documentation
 random_state = 42
 best_accuracy = 0.0
 
 # region dataset
 # all dataset were taken from: https://www.tensorflow.org/datasets/catalog/overview
 datasets_info = {
-    "beans": [1295, 3],
+    
     "binary_alpha_digits": [1404, 36],
     "cifar10": [60000, 10],
     "citrus_leaves": [425, 4],
@@ -55,7 +57,8 @@ datasets_info = {
     "oxford_flowers102": [8189, 102],
     "deep_weeds": [17509, 9],
     "eurosat": [27000, 10],
-    "mnist": [70000, 10]
+    "mnist": [70000, 10], 
+    "beans": [1295, 3],
 
     # ,"stanford_online_products": [59551, 12],  # TODO: check not support  as_supervised=True
     # ,"stanford_dogs": [12000, 120], # TODO: check Unable to allocate 22.5 GiB for an array with shape (3019898880,) and data type float64
@@ -269,6 +272,17 @@ if not os.path.exists("BayesianOptimization"):
     os.mkdir("BayesianOptimization")
 
 all_score = {}
+
+# TODO: create in cluster - to prevent error
+# for ds_name in datasets_info:
+#     print(f"uploading dataset: {ds_name}")
+#     for i in range(10):
+#         if not os.path.exists(os.path.join("BayesianOptimization", ds_name)):
+#             os.mkdir(os.path.join("BayesianOptimization", ds_name))
+#         if not os.path.exists(os.path.join("BayesianOptimization", ds_name, str(i))):
+#             os.mkdir(os.path.join("BayesianOptimization", ds_name, str(i)))
+
+
 for ds_name in datasets_info:
     print(f"uploading dataset: {ds_name}")
     # constrain the size of train & test sets
@@ -316,7 +330,7 @@ for ds_name in datasets_info:
                                         # TODO change to 50
                                         n_calls=50,
                                         x0=default_parameters)
-            best_result(search_result, ds_name, index_cv=index_cv)
+           
 
             results[tuple(search_result.x)] = best_accuracy
 
@@ -343,6 +357,7 @@ for ds_name in datasets_info:
             all_score[f"{ds_name}:{index_cv}"] = [float(i) if not isinstance(i, str) else i for i in search_result.x] + \
                                                  [float(i) for i in list(score.values())]
             index_cv += 1
+            best_result(search_result, ds_name, index_cv=index_cv)
         except Exception as e:
             import traceback
 
