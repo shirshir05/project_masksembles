@@ -52,7 +52,7 @@ datasets_info = {
     "cats_vs_dogs": [23262, 2],
     "uc_merced": [2100, 21],
     "kmnist": [60000, 10],
-    "oxford_flowers102": [8189, 102],
+    # "oxford_flowers102": [8189, 102], # TODO: n_splits=10 cannot be greater than the number of members in each class.
     "deep_weeds": [17509, 9],
     "eurosat": [27000, 10],
     "mnist": [70000, 10],
