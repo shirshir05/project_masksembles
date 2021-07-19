@@ -91,12 +91,15 @@ def create_model(learning_rate, num_dense_layers, num_dense_nodes, activation):
     '''
     model = keras.Sequential()
     model.add(keras.Input(shape=input_shape))
+
     model.add(layers.Conv2D(32, kernel_size=(3, 3), activation="elu"))
     model.add(Masksembles2D(4, 2.0))
     model.add(layers.MaxPooling2D(pool_size=(2, 2)))
+
     model.add(layers.Conv2D(64, kernel_size=(3, 3), activation="elu"))
     model.add(Masksembles2D(4, 2.0))
     model.add(layers.MaxPooling2D(pool_size=(2, 2)))
+
     model.add(layers.Flatten())
     model.add(Masksembles1D(4, 2.))
     # Add num_dense_layers dense layers
