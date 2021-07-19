@@ -1,7 +1,6 @@
 import json
 import os
 from time import time
-
 import numpy as np
 
 # TODO pip install git+http://github.com/nikitadurasov/masksembles
@@ -35,33 +34,21 @@ best_accuracy = 0.0
 
 # region dataset
 # all dataset were taken from: https://www.tensorflow.org/datasets/catalog/overview
-datasets_info = {
+datasets_info = dict(imagewang= [14,669, 20],
+                     binary_alpha_digits=[1404, 36], cifar10=[60000, 10],
+                     citrus_leaves=[759, 4], cassava=[9430, 5], rock_paper_scissors=[2520, 3],
+                     horses_or_humans=[1280, 2], dmlab=[65550, 6], food101=[75750, 101], cmaterdb=[5000, 10],
+                     stl10=[5000, 10], tf_flowers=[2670, 5], cats_vs_dogs=[23262, 2], uc_merced=[2100, 21],
+                     kmnist=[60000, 10], deep_weeds=[17509, 9], eurosat=[27000, 10], mnist=[70000, 10],
+                     beans=[1295, 3], svhn_cropped=[73, 257, 10]
+                     )  # "dataset_name": [n_samples, NUM_CLASSES]
 
-    "binary_alpha_digits": [1404, 36],
-    "cifar10": [60000, 10],
-    "citrus_leaves": [425, 4],
-    "cassava": [9430, 5],
-    "rock_paper_scissors": [2520, 3],
-    "horses_or_humans": [1280, 2],
-    "dmlab": [65550, 6],
-    "food101": [75750, 101],
-    "cmaterdb": [5000, 10],
+# TODO: dataset check -malaria =[27,558,2]  Dtd=[1,880,47] caltech101=[3,060, 102], caltech_birds2010=[3,000, 200], caltech_birds2011=[	5,994, 200]
+# "oxford_flowers102": [8189, 102], # TODO: n_splits=10 cannot be greater than the number of members in each class. ,
+#  "stanford_online_products": [59551, 12],  # TODO: not support  as_supervised=True
+#   snli= colorectal_histology,  patch_camelyon,oxford_iiit_pet=
+#  ,fashion_mnist = i_naturalist2017 = quickdraw_bitmap,bigearthnet,malaria TODO: X
 
-    "stl10": [5000, 10],
-    "tf_flowers": [2670, 5],
-    "cats_vs_dogs": [23262, 2],
-    "uc_merced": [2100, 21],
-    "kmnist": [60000, 10],
-    # "oxford_flowers102": [8189, 102], # TODO: n_splits=10 cannot be greater than the number of members in each class.
-    "deep_weeds": [17509, 9],
-    "eurosat": [27000, 10],
-    "mnist": [70000, 10],
-    "beans": [1295, 3],
-
-    # ,"stanford_online_products": [59551, 12],  # TODO: check not support  as_supervised=True
-    # ,"stanford_dogs": [12000, 120], # TODO: check Unable to allocate 22.5 GiB for an array with shape (3019898880,) and data type float64
-
-}  # "dataset_name": [n_samples, NUM_CLASSES]
 MAX_SAMPLES_NUM = 320
 # endregion
 
@@ -384,9 +371,13 @@ with open(os.path.join("BayesianOptimization", "scores.json"), 'w') as f:
 #     1.4 evaluate on x_test
 # 2.select the best
 
-# 0. Actually read the paper
-# 1. picture dataset - Amit. Prepare the pipeline for training. detail the datasets in the report
-# 2. optimization - after reading
-# 3. evaluate_on_test
-# 4. anova (Statistical significance testing)
-# 5. improvement
+# # TODO: check dataset
+# opt_par = default_parameters
+# learning_rate = opt_par[0]
+# num_layers = opt_par[1]
+# num_nodes = opt_par[2]
+# activation = opt_par[3]
+# best_model = create_model(learning_rate, num_layers, num_nodes, activation)
+# X_train_val, Y_train_val = divied_4(X, Y)
+# history = best_model.fit(X_train_val, Y_train_val, epochs=1)
+# continue
