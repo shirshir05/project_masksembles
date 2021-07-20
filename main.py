@@ -376,7 +376,8 @@ for ds_name in datasets_info:
             X_train_val, Y_train_val = divided(X_train_val, Y_train_val, num_nodes)
             start_train = time()
             # TODO: change epoch to 100
-            history = best_model.fit(X_train_val, Y_train_val, epochs=1, batch_size=16 * num_nodes, verbose=0)
+            history = best_model.fit(X_train_val, Y_train_val, epochs=1, batch_size=16 * num_nodes, verbose=0,
+                                     callbacks=[tfmot.sparsity.keras.UpdatePruningStep()])
             end_train = time() - start_train
             y_pred = best_model.predict(X_test, batch_size=16 * num_nodes)
             score = {'accuracy_score': -1, "fpr": -1, 'tpr': -1, 'precision_score': -1, 'recall_score': -1,
