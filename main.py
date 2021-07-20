@@ -66,9 +66,9 @@ datasets_info = dict(
 )  # "dataset_name": [n_samples, NUM_CLASSES]
 
 # TODO: dataset check -  caltech_birds2011=[5994, 200]
-#  "stanford_online_products": [59551, 12],  # TODO: not support  as_supervised=True
-#   snli= colorectal_histology,  patch_camelyon,oxford_iiit_pet, caltech101, caltech_birds2010, lfwת curated_breast_imaging_ddsm, pet_finder, plant_leaves
-#  ,fashion_mnist = i_naturalist2017 = quickdraw_bitmap,bigearthnet,malaria, cassava,  imagewangת "oxford_flowers102" TODO: X
+#  TODO: X "stanford_online_products"  snli, colorectal_histology,  patch_camelyon,oxford_iiit_pet, caltech101, caltech_birds2010,
+# lfwת curated_breast_imaging_ddsm, pet_finder, plant_leaves ,fashion_mnist = i_naturalist2017 = quickdraw_bitmap,
+# bigearthnet,malaria, cassava,  imagewangת "oxford_flowers102"
 
 
 # endregion
@@ -223,7 +223,7 @@ def fitness(learning_rate, n_convolutions, n):
         history = model.fit(x=X_train,
                             y=y_train,
                             # TODO: change number epoch
-                            epochs=1,
+                            epochs=100,
                             batch_size=16 * n,
                             validation_data=(X_val, y_val),
                             callbacks=[tfmot.sparsity.keras.UpdatePruningStep()], verbose=0
@@ -357,17 +357,16 @@ for ds_name in datasets_info:
             Y_train_val, Y_test = Y[train_val_index], Y[test_index]
 
             best_accuracy = 0.0
-            # search_result = gp_minimize(func=fitness,
-            #                             dimensions=dimensions,
-            #                             acq_func='EI',  # Expected Improvement.
-            #                             # TODO : change to 50
-            #                             n_calls=11,
-            #                             x0=default_parameters)
-            #
-            # results[tuple(search_result.x)] = best_accuracy
-            opt_par = default_parameters
+            search_result = gp_minimize(func=fitness,
+                                        dimensions=dimensions,
+                                        acq_func='EI',  # Expected Improvement.
+                                        # TODO : change to 50
+                                        n_calls=50,
+                                        x0=default_parameters)
 
-            # opt_par = search_result.x
+            results[tuple(search_result.x)] = best_accuracy
+
+            opt_par = search_result.x
             learning_rate = opt_par[0]
             num_layers = opt_par[1]
             num_nodes = opt_par[2]
@@ -376,7 +375,7 @@ for ds_name in datasets_info:
             X_train_val, Y_train_val = divided(X_train_val, Y_train_val, num_nodes)
             start_train = time()
             # TODO: change epoch to 100
-            history = best_model.fit(X_train_val, Y_train_val, epochs=1, batch_size=16 * num_nodes, verbose=0)
+            history = best_model.fit(X_train_val, Y_train_val, epochs=100, batch_size=16 * num_nodes, verbose=0)
             end_train = time() - start_train
             y_pred = best_model.predict(X_test, batch_size=16 * num_nodes)
             score = {'accuracy_score': -1, "fpr": -1, 'tpr': -1, 'precision_score': -1, 'recall_score': -1,
