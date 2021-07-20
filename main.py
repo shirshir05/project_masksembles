@@ -375,7 +375,7 @@ for ds_name in datasets_info:
             if len(test_index) > 1000:
                 X_test = X_test[:1000]
             start_test = time()
-            best_model.predict(X_test)
+            best_model.predict(X_test, batch_size=16*num_nodes)
             end_test = time() - start_test
             score['inference_time'] = end_test
             all_score[f"{ds_name}:{index_cv}"] = [float(i) if not isinstance(i, str) else i for i in search_result.x] + \
