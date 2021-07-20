@@ -42,20 +42,20 @@ MAX_SAMPLES_NUM = 1000
 
 # region dataset
 # all dataset were taken from: https://www.tensorflow.org/datasets/catalog/overview
-datasets_info = dict(cassava=[9430, 5], mnist=[70000, 10], imagewang=[14, 669, 20],
+datasets_info = dict(mnist=[70000, 10], imagewang=[14, 669, 20],
                      binary_alpha_digits=[1404, 36], cifar10=[60000, 10],
                      citrus_leaves=[759, 4], rock_paper_scissors=[2520, 3],
                      horses_or_humans=[1280, 2], dmlab=[65550, 6], food101=[75750, 101], cmaterdb=[5000, 10],
                      stl10=[5000, 10], tf_flowers=[2670, 5], cats_vs_dogs=[23262, 2], uc_merced=[2100, 21],
                      kmnist=[60000, 10], deep_weeds=[17509, 9], eurosat=[27000, 10],
-                     beans=[1295, 3], svhn_cropped=[73, 257, 10]
+                     beans=[1295, 3], svhn_cropped=[73, 257, 10], caltech101=[3060, 102]
                      )  # "dataset_name": [n_samples, NUM_CLASSES]
 
-# TODO: dataset check -malaria =[27,558,2]  Dtd=[1,880,47] caltech101=[3,060, 102], caltech_birds2010=[3,000, 200], caltech_birds2011=[	5,994, 200]
+# TODO: dataset check -  Dtd=[1,880,47] caltech101=[3,060, 102], caltech_birds2010=[3,000, 200], caltech_birds2011=[	5,994, 200]
 # "oxford_flowers102": [8189, 102], # TODO: n_splits=10 cannot be greater than the number of members in each class. ,
 #  "stanford_online_products": [59551, 12],  # TODO: not support  as_supervised=True
 #   snli= colorectal_histology,  patch_camelyon,oxford_iiit_pet=
-#  ,fashion_mnist = i_naturalist2017 = quickdraw_bitmap,bigearthnet,malaria TODO: X
+#  ,fashion_mnist = i_naturalist2017 = quickdraw_bitmap,bigearthnet,malaria, cassava TODO: X
 
 
 # endregion
@@ -63,7 +63,7 @@ datasets_info = dict(cassava=[9430, 5], mnist=[70000, 10], imagewang=[14, 669, 2
 # region hyper-parameters to tune
 learning_rate = Real(low=1e-6, high=1e-1, prior='log-uniform', name='learning_rate')
 n_convolutions = Integer(low=1, high=5, name='n_convolutions')
-n = Integer(low=4, high=8, name='n')  # TODO: Change and Check Tuning values
+n = Integer(low=2, high=8, name='n')  # TODO: Change and Check Tuning values
 
 # hold all examnined hyper-parameters dimention i a list
 dimensions = [learning_rate, n_convolutions, n]
@@ -84,16 +84,27 @@ def add_dropout(model, model_to_run, dim, n):
     if model_to_run == "basic":
         model.add(layers.Dropout(0.2))
     elif model_to_run == "masksembles":
-        if dim == 1:
-            model.add(Masksembles1D(n, 2.0))  # 4
-        else:  # dim==2
-            model.add(Masksembles2D(n, 2.0))
+        flag = True
+        s = 1
+        while flag:
+            if dim == 1:
+                model.add(Masksembles1D(n, s))  # 4
+                flag = False
+            else:  # dim==2
+                model.add(Masksembles2D(n, s))
+                flag = False
+            s += 1
     else:  # model_to_run is "pruned_masksembles"
-        if dim == 1:
-            model.add(prune_low_magnitude(MyMasksembles1D(n, 2.0)))
-        else:  # dim==2
-            model.add(prune_low_magnitude(MyMasksembles2D(n, 2.0)))
-
+        flag = True
+        s = 1
+        while flag:
+            if dim == 1:
+                model.add(prune_low_magnitude(MyMasksembles1D(n, s)))
+                flag = False
+            else:  # dim==2
+                model.add(prune_low_magnitude(MyMasksembles2D(n, s)))
+                flag = False
+            s += 1
 
 def add_convolutions(model, n_convolutions, n_filters):
     """
@@ -134,10 +145,9 @@ def create_model(learning_rate, n_convolutions, n, model_to_run):
     model.add(layers.Flatten())
     add_dropout(model, model_to_run, 1, n)
     model.add(layers.Dense(n_classes, activation="softmax"))
-    model.summary()
+    # model.summary()
 
     optimizer = Adam(learning_rate=learning_rate)
-    # TODO: change metric to maximize
     model.compile(optimizer=optimizer,
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])
@@ -147,6 +157,13 @@ def create_model(learning_rate, n_convolutions, n, model_to_run):
 # endregion
 
 def divided(x_check, y_check, n):
+    """
+   This function verifies that the data is divided by N as required in the configuration of maskensemble
+    :param x_check:
+    :param y_check:
+    :param n:
+    :return:
+    """
     while x_check.shape[0] % n != 0:
         x_check = x_check[1:]
         y_check = y_check[1:]
@@ -189,13 +206,13 @@ def fitness(learning_rate, n_convolutions, n):
         X_train, y_train = divided(X_train, y_train, n)
         X_val, y_val = divided(X_val, y_val, n)
 
-        # TODO: change number epoch
         history = model.fit(x=X_train,
                             y=y_train,
-                            epochs=100,
-                            batch_size=32,
+                            # TODO: change number epoch
+                            epochs=1,
+                            batch_size=16*n,
                             validation_data=(X_val, y_val),
-                            callbacks=[tfmot.sparsity.keras.UpdatePruningStep()]
+                            callbacks=[tfmot.sparsity.keras.UpdatePruningStep()], verbose=0
                             )
         accuracy = history.history['val_accuracy'][-1]
         average_accuracy += accuracy
@@ -241,7 +258,7 @@ def best_result(search_result, ds_name, index_cv=0):
     plot_evaluations(result=search_result, dimensions=dim_names)
 
 
-def evaluate_on_test(y_true, y_pred, ds_name, index_cv, scores):
+def evaluate_on_test(y_true, y_pred, scores):
     def pr_auc_score(y_true, y_score):
         precision, recall, thresholds = metrics.precision_recall_curve(y_true, y_score)
         return metrics.auc(recall, precision)
@@ -262,9 +279,6 @@ def evaluate_on_test(y_true, y_pred, ds_name, index_cv, scores):
     scores['precision_score'] = metrics.precision_score(y_true, max_y_pred, average='macro')
     scores['recall_score'] = metrics.recall_score(y_true, max_y_pred, average='macro')
     scores['auc_score'] = metrics.roc_auc_score(y_true, y_pred)
-
-    precision = {}
-    recall = {}
     pr = 0
     plt.clf()
     for i in n_classes:
@@ -289,10 +303,11 @@ def open_dirs():
 # ================================== start of the script ==================================
 
 # create BayesianOptimization directories
+# TODO: run before all running
 # open_dirs()
 
 all_score = {}
-model_to_run="pruned_masksembles"
+model_to_run = "masksembles"
 for ds_name in datasets_info:
     print(f"uploading dataset: {ds_name}")
 
@@ -331,7 +346,8 @@ for ds_name in datasets_info:
             search_result = gp_minimize(func=fitness,
                                         dimensions=dimensions,
                                         acq_func='EI',  # Expected Improvement.
-                                        n_calls=50,
+                                        # TODO : change to 50
+                                        n_calls=11,
                                         x0=default_parameters)
 
             results[tuple(search_result.x)] = best_accuracy
@@ -344,13 +360,14 @@ for ds_name in datasets_info:
             best_model = create_model(learning_rate, num_layers, num_nodes, model_to_run)
             X_train_val, Y_train_val = divided(X_train_val, Y_train_val, num_nodes)
             start_train = time()
-            history = best_model.fit(X_train_val, Y_train_val, epochs=100)
+            # TODO: change epoch to 100
+            history = best_model.fit(X_train_val, Y_train_val, epochs=1, batch_size=16*num_nodes)
             end_train = time() - start_train
-            y_pred = best_model.predict(X_test)
+            y_pred = best_model.predict(X_test, batch_size=16*num_nodes)
             score = {'accuracy_score': -1, "fpr": -1, 'tpr': -1, 'precision_score': -1, 'recall_score': -1,
                      'auc_score': -1, 'pr_auc_score': -1, 'Training_time': -1, 'inference_time': -1}
             try:
-                score = evaluate_on_test(Y_test, y_pred, ds_name, index_cv, score)
+                score = evaluate_on_test(Y_test, y_pred, score)
             except:
                 pass
             score['Training_time'] = end_train
@@ -363,13 +380,11 @@ for ds_name in datasets_info:
             score['inference_time'] = end_test
             all_score[f"{ds_name}:{index_cv}"] = [float(i) if not isinstance(i, str) else i for i in search_result.x] + \
                                                  [float(i) for i in list(score.values())]
+            if index_cv == 0:
+                best_result(search_result, ds_name, index_cv=index_cv)
             index_cv += 1
-
-            # TODO: run after all experiments
-            # best_result(search_result, ds_name, index_cv=index_cv)
         except Exception as e:
             import traceback
-
             print(traceback.format_exc())
             print(f"Error {e}")
             pass
