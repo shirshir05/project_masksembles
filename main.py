@@ -39,6 +39,7 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 random_state = 42
 best_accuracy = 0.0
 MAX_SAMPLES_NUM = 320
+MODEL_NAME = "pruned_masksembles"  # "basic", "masksembles" or "pruned_masksembles"
 
 # region dataset
 # all dataset were taken from: https://www.tensorflow.org/datasets/catalog/overview
@@ -63,7 +64,7 @@ datasets_info = dict(cassava=[9430, 5], mnist=[70000, 10], imagewang=[14, 669, 2
 # region hyper-parameters to tune
 learning_rate = Real(low=1e-6, high=1e-1, prior='log-uniform', name='learning_rate')
 n_convolutions = Integer(low=1, high=5, name='n_convolutions')
-n = Integer(low=4, high=8, name='n')  # TODO: Change and Check Tuning values
+n = Integer(low=4, high=4, name='n')  # TODO: Change and Check Tuning values
 
 # hold all examnined hyper-parameters dimention i a list
 dimensions = [learning_rate, n_convolutions, n]
@@ -185,7 +186,7 @@ def fitness(learning_rate, n_convolutions, n):
         model = create_model(learning_rate=learning_rate,
                              n_convolutions=n_convolutions,
                              n=n,
-                             model_to_run="pruned_masksembles")
+                             model_to_run=MODEL_NAME)
         X_train, y_train = divied_4(X_train, y_train)
         X_val, y_val = divied_4(X_val, y_val)
 
