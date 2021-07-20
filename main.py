@@ -17,7 +17,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import layers
 # TODO: pip install scikit-optimize
 from skopt import gp_minimize
-from skopt.space import Real, Categorical, Integer
+from skopt.space import Real, Integer
 from skopt.plots import plot_convergence
 from skopt.plots import plot_evaluations
 from skopt.plots import plot_objective
@@ -38,7 +38,7 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 # params
 random_state = 42
 best_accuracy = 0.0
-MAX_SAMPLES_NUM = 320
+MAX_SAMPLES_NUM = 1000
 
 # region dataset
 # all dataset were taken from: https://www.tensorflow.org/datasets/catalog/overview
@@ -146,8 +146,8 @@ def create_model(learning_rate, n_convolutions, n, model_to_run):
 
 # endregion
 
-def divied_4(x_check, y_check):
-    while x_check.shape[0] % 4 != 0:
+def divided(x_check, y_check, n):
+    while x_check.shape[0] % n != 0:
         x_check = x_check[1:]
         y_check = y_check[1:]
     return x_check, y_check
@@ -185,9 +185,9 @@ def fitness(learning_rate, n_convolutions, n):
         model = create_model(learning_rate=learning_rate,
                              n_convolutions=n_convolutions,
                              n=n,
-                             model_to_run="pruned_masksembles")
-        X_train, y_train = divied_4(X_train, y_train)
-        X_val, y_val = divied_4(X_val, y_val)
+                             model_to_run=model_to_run)
+        X_train, y_train = divided(X_train, y_train, n)
+        X_val, y_val = divided(X_val, y_val, n)
 
         # TODO: change number epoch
         history = model.fit(x=X_train,
@@ -197,8 +197,6 @@ def fitness(learning_rate, n_convolutions, n):
                             validation_data=(X_val, y_val),
                             callbacks=[tfmot.sparsity.keras.UpdatePruningStep()]
                             )
-
-        # TODO: change metric
         accuracy = history.history['val_accuracy'][-1]
         average_accuracy += accuracy
         # Delete the Keras model with these hyper-parameters from memory.
@@ -271,15 +269,7 @@ def evaluate_on_test(y_true, y_pred, ds_name, index_cv, scores):
     plt.clf()
     for i in n_classes:
         pr += pr_auc_score(y_true[:, i], y_pred[:, i])
-        precision[i], recall[i], _ = precision_recall_curve(y_true[:, i], y_pred[:, i])
-        plt.plot(recall[i], precision[i], lw=2, label='class {}'.format(i))
     scores['pr_auc_score'] = pr / len(n_classes)
-    plt.xlabel("recall")
-    plt.ylabel("precision")
-    plt.legend(loc="best")
-    plt.title("precision vs. recall curve")
-    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv), "precision_recall.png"))
-    plt.clf()
     return scores
 
 
@@ -302,6 +292,7 @@ def open_dirs():
 # open_dirs()
 
 all_score = {}
+model_to_run="pruned_masksembles"
 for ds_name in datasets_info:
     print(f"uploading dataset: {ds_name}")
 
@@ -331,16 +322,11 @@ for ds_name in datasets_info:
     index_cv = 0
     results = {}
 
-    # # TODO: only for test (remove)
-    # X = X[:200]
-    # Y = Y[:200]
-    # labels = labels[:200]
-
     for train_val_index, test_index in kf_external.split(X, labels):
         try:
             X_train_val, X_test = X[train_val_index], X[test_index]
             Y_train_val, Y_test = Y[train_val_index], Y[test_index]
-            X_test, Y_test = divied_4(X_test, Y_test)
+
             best_accuracy = 0.0
             search_result = gp_minimize(func=fitness,
                                         dimensions=dimensions,
@@ -354,8 +340,9 @@ for ds_name in datasets_info:
             learning_rate = opt_par[0]
             num_layers = opt_par[1]
             num_nodes = opt_par[2]
-            best_model = create_model(learning_rate, num_layers, num_nodes)
-            X_train_val, Y_train_val = divied_4(X_train_val, Y_train_val)
+            X_test, Y_test = divided(X_test, Y_test, num_nodes)
+            best_model = create_model(learning_rate, num_layers, num_nodes, model_to_run)
+            X_train_val, Y_train_val = divided(X_train_val, Y_train_val, num_nodes)
             start_train = time()
             history = best_model.fit(X_train_val, Y_train_val, epochs=100)
             end_train = time() - start_train
@@ -378,7 +365,8 @@ for ds_name in datasets_info:
                                                  [float(i) for i in list(score.values())]
             index_cv += 1
 
-            best_result(search_result, ds_name, index_cv=index_cv)
+            # TODO: run after all experiments
+            # best_result(search_result, ds_name, index_cv=index_cv)
         except Exception as e:
             import traceback
 
@@ -390,23 +378,3 @@ for ds_name in datasets_info:
     print(results)
 with open(os.path.join("BayesianOptimization", "scores.json"), 'w') as f:
     json.dump(all_score, f)
-
-# 1. Do 10 cross:
-#     1.1 X_train_val, x_test, y_train_val, y_test
-#     1.2 for i in setting hyper parameters:
-#        1.2.1 Do 3 cross validation with X_train_val -> X_val (test), X_train(train)
-#        1.2.2 The average of X_val is the result of the setting i
-#     1.3 (search_result.x) create model with the best setting from step 1.2 and train with X_train_val and test
-#     1.4 evaluate on x_test
-# 2.select the best
-
-# # TODO: check dataset
-# opt_par = default_parameters
-# learning_rate = opt_par[0]
-# num_layers = opt_par[1]
-# num_nodes = opt_par[2]
-# activation = opt_par[3]
-# best_model = create_model(learning_rate, num_layers, num_nodes, activation)
-# X_train_val, Y_train_val = divied_4(X, Y)
-# history = best_model.fit(X_train_val, Y_train_val, epochs=1)
-# continue
