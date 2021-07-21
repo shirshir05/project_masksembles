@@ -43,8 +43,8 @@ MAX_SAMPLES_NUM = 1000
 # region dataset
 # all dataset were taken from: https://www.tensorflow.org/datasets/catalog/overview
 datasets_info = dict(
-    mnist=[70000, 10],
     beans=[1295, 3],
+    mnist=[70000, 10],
     mnist_corrupted=[60000, 10],
     plant_village=[54303, 38],
     binary_alpha_digits=[1404, 36],
@@ -75,7 +75,7 @@ datasets_info = dict(
 
 # region hyper-parameters to tune
 learning_rate = Real(low=1e-6, high=1e-1, prior='log-uniform', name='learning_rate')
-n_convolutions = Integer(low=1, high=5, name='n_convolutions')
+n_convolutions = Integer(low=0, high=3, name='n_convolutions')
 n = Integer(low=2, high=8, name='n')
 
 # hold all examnined hyper-parameters dimention i a list
@@ -101,22 +101,34 @@ def add_dropout(model, model_to_run, dim, n):
         s = 1
         while flag:
             if dim == 1:
-                model.add(Masksembles1D(n, s))  # 4
-                flag = False
+                try:
+                    model.add(Masksembles1D(n, s))  # 4
+                    flag = False
+                except:
+                    pass
             else:  # dim==2
-                model.add(Masksembles2D(n, s))
-                flag = False
+                try:
+                    model.add(Masksembles2D(n, s))
+                    flag = False
+                except:
+                    pass
             s += 1
     else:  # model_to_run is "pruned_masksembles"
         flag = True
         s = 1
         while flag:
             if dim == 1:
-                model.add(prune_low_magnitude(MyMasksembles1D(n, s)))
-                flag = False
+                try:
+                    model.add(prune_low_magnitude(MyMasksembles1D(n, s)))
+                    flag = False
+                except:
+                    pass
             else:  # dim==2
-                model.add(prune_low_magnitude(MyMasksembles2D(n, s)))
-                flag = False
+                try:
+                    model.add(prune_low_magnitude(MyMasksembles2D(n, s)))
+                    flag = False
+                except:
+                    pass
             s += 1
 
 
@@ -393,8 +405,8 @@ for ds_name in datasets_info:
             best_model.predict(X_test, batch_size=16 * num_nodes)
             end_test = time() - start_test
             score['inference_time'] = end_test
-            # all_score[f"{ds_name}:{index_cv}"] = [float(i) if not isinstance(i, str) else i for i in search_result.x] + \
-            #                                      [float(i) for i in list(score.values())]
+            all_score[f"{ds_name}:{index_cv}"] = [float(i) if not isinstance(i, str) else i for i in search_result.x] + \
+                                                 [float(i) for i in list(score.values())]
             # if index_cv == 0:
             #     best_result(search_result, ds_name, index_cv=index_cv)
             index_cv += 1
