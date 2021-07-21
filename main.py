@@ -425,8 +425,8 @@ for ds_name in datasets_info:
             score['inference_time'] = end_test
             all_score[f"{ds_name}:{index_cv}"] = [float(i) if not isinstance(i, str) else i for i in search_result.x] + \
                                                  [float(i) for i in list(score.values())]
-            # if index_cv == 0:
-            #     best_result(search_result, ds_name, index_cv=index_cv)
+            if index_cv == 0:
+                best_result(search_result, ds_name, index_cv=index_cv)
             index_cv += 1
         except Exception as e:
             import traceback
