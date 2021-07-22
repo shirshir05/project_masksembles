@@ -3,6 +3,9 @@ import os
 from time import time
 import numpy as np
 import tensorflow_model_optimization as tfmot
+from tensorflow.python.keras.applications.inception_v3 import InceptionV3
+from tensorflow.python.keras.layers import BatchNormalization, GlobalAveragePooling2D, Dense
+from tensorflow.python.keras.models import Model
 from tensorflow_model_optimization.python.core.sparsity.keras.prune import prune_low_magnitude
 
 from my_masksembles import MyMasksembles2D, MyMasksembles1D
@@ -38,15 +41,14 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 # params
 random_state = 42
 best_accuracy = 0.0
-MAX_SAMPLES_NUM = 19000
+MAX_SAMPLES_NUM = 1000
 
 # region dataset
 # all dataset were taken from: https://www.tensorflow.org/datasets/catalog/overview
 datasets_info = dict(
-    mnist=[70000, 10],
-
+    cats_vs_dogs=[23262, 2],
     beans=[1034, 3],
-
+    mnist=[70000, 10],
     mnist_corrupted=[60000, 10],
     plant_village=[54303, 38],
     binary_alpha_digits=[1404, 36],
@@ -58,7 +60,6 @@ datasets_info = dict(
     cmaterdb=[5000, 10],
     stl10=[5000, 10],
     tf_flowers=[2670, 5],
-    cats_vs_dogs=[23262, 2],
     uc_merced=[2100, 21],
     kmnist=[60000, 10],
     food101=[75750, 101],
@@ -157,6 +158,21 @@ def create_model(learning_rate, n_convolutions, n, model_to_run):
     @param model_to_run: string: "basic", "masksembles" or "pruned_masksembles"
     @return: built model after compilation
     """
+    # input_tensor = keras.Input(shape=input_shape)
+    # base_model = InceptionV3(include_top=False,
+    #                          weights='imagenet',
+    #                          input_shape=input_shape)
+    # base_model.trainable = False
+    # bn = BatchNormalization()(input_tensor)
+    # x = base_model(bn)
+    # x = GlobalAveragePooling2D()(x)
+    # x = Dense(128, activation='relu')(x)
+    # output = Dense(n_classes, activation='softmax')(x)
+    # model = Model(input_tensor, output)
+    # optimizer = Adam(learning_rate=learning_rate)
+    # model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
+    # return model
+
     model = keras.Sequential()
     model.add(keras.Input(shape=input_shape))
 
@@ -335,7 +351,7 @@ def open_dirs():
 # open_dirs()
 
 all_score = {}
-model_to_run = "basic"
+model_to_run = "masksembles"  # TODO: change model
 for ds_name in datasets_info:
     print(f"uploading dataset: {ds_name}")
 
@@ -356,7 +372,7 @@ for ds_name in datasets_info:
 
     # preprocess
     X = X / 255
-    X = np.resize(X, (X.shape[0], 32, 32, 1))
+    X = np.resize(X, (X.shape[0], 75, 75, 3))
     print(f"data shape after: {X.shape}")
     input_shape = (X.shape[1], X.shape[2], X.shape[3])
 
@@ -389,7 +405,7 @@ for ds_name in datasets_info:
             X_train_val, Y_train_val = divided(X_train_val, Y_train_val, num_nodes)
             start_train = time()
             # TODO: change epoch to 100
-            history = best_model.fit(X_train_val, Y_train_val, epochs=50, batch_size=16 * num_nodes, verbose=0,
+            history = best_model.fit(X_train_val, Y_train_val, epochs=100, batch_size=16 * num_nodes, verbose=0,
                                      callbacks=[tfmot.sparsity.keras.UpdatePruningStep()])
             end_train = time() - start_train
             y_pred = best_model.predict(X_test, batch_size=16 * num_nodes)
@@ -409,8 +425,8 @@ for ds_name in datasets_info:
             score['inference_time'] = end_test
             all_score[f"{ds_name}:{index_cv}"] = [float(i) if not isinstance(i, str) else i for i in search_result.x] + \
                                                  [float(i) for i in list(score.values())]
-            # if index_cv == 0:
-            #     best_result(search_result, ds_name, index_cv=index_cv)
+            if index_cv == 0:
+                best_result(search_result, ds_name, index_cv=index_cv)
             index_cv += 1
         except Exception as e:
             import traceback
