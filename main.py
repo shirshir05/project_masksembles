@@ -38,13 +38,15 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 # params
 random_state = 42
 best_accuracy = 0.0
-MAX_SAMPLES_NUM = 1000
+MAX_SAMPLES_NUM = 19000
 
 # region dataset
 # all dataset were taken from: https://www.tensorflow.org/datasets/catalog/overview
 datasets_info = dict(
-    beans=[1295, 3],
     mnist=[70000, 10],
+
+    beans=[1034, 3],
+
     mnist_corrupted=[60000, 10],
     plant_village=[54303, 38],
     binary_alpha_digits=[1404, 36],
@@ -333,7 +335,7 @@ def open_dirs():
 # open_dirs()
 
 all_score = {}
-model_to_run = "masksembles"
+model_to_run = "basic"
 for ds_name in datasets_info:
     print(f"uploading dataset: {ds_name}")
 
@@ -387,7 +389,7 @@ for ds_name in datasets_info:
             X_train_val, Y_train_val = divided(X_train_val, Y_train_val, num_nodes)
             start_train = time()
             # TODO: change epoch to 100
-            history = best_model.fit(X_train_val, Y_train_val, epochs=100, batch_size=16 * num_nodes, verbose=0,
+            history = best_model.fit(X_train_val, Y_train_val, epochs=50, batch_size=16 * num_nodes, verbose=0,
                                      callbacks=[tfmot.sparsity.keras.UpdatePruningStep()])
             end_train = time() - start_train
             y_pred = best_model.predict(X_test, batch_size=16 * num_nodes)
