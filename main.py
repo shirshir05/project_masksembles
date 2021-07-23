@@ -41,24 +41,23 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 # params
 random_state = 42
 best_accuracy = 0.0
-MAX_SAMPLES_NUM = 1000
+MAX_SAMPLES_NUM = 2000
 
 # region dataset
 # all dataset were taken from: https://www.tensorflow.org/datasets/catalog/overview
 datasets_info = dict(
+    stl10=[5000, 10],
+    mnist=[70000, 10],
+    plant_village=[54303, 38],
     cats_vs_dogs=[23262, 2],
     beans=[1034, 3],
-    mnist=[70000, 10],
     mnist_corrupted=[60000, 10],
-    plant_village=[54303, 38],
     binary_alpha_digits=[1404, 36],
-    cifar10=[60000, 10],
     citrus_leaves=[594, 4],
     rock_paper_scissors=[2520, 3],
     horses_or_humans=[1280, 2],
     dmlab=[65550, 6],
     cmaterdb=[5000, 10],
-    stl10=[5000, 10],
     tf_flowers=[2670, 5],
     uc_merced=[2100, 21],
     kmnist=[60000, 10],
@@ -66,10 +65,11 @@ datasets_info = dict(
     deep_weeds=[17509, 9],
     eurosat=[27000, 10],
     svhn_cropped=[73257, 10],
+    cifar10=[60000, 10]
 )  # "dataset_name": [n_samples, NUM_CLASSES]
 
-# TODO: dataset check -  caltech_birds2011=[5994, 200]
-#  TODO: X "stanford_online_products"  snli, colorectal_histology,  patch_camelyon,oxford_iiit_pet, caltech101, caltech_birds2010,
+# dataset check -  caltech_birds2011=[5994, 200]
+#  bad dataset: X "stanford_online_products"  snli, colorectal_histology,  patch_camelyon,oxford_iiit_pet, caltech101, caltech_birds2010,
 # lfwת curated_breast_imaging_ddsm, pet_finder, plant_leaves ,fashion_mnist = i_naturalist2017 = quickdraw_bitmap,
 # bigearthnet,malaria, cassava,  imagewangת "oxford_flowers102"
 
@@ -158,44 +158,49 @@ def create_model(learning_rate, n_convolutions, n, model_to_run):
     @param model_to_run: string: "basic", "masksembles" or "pruned_masksembles"
     @return: built model after compilation
     """
-    # input_tensor = keras.Input(shape=input_shape)
-    # base_model = InceptionV3(include_top=False,
-    #                          weights='imagenet',
-    #                          input_shape=input_shape)
-    # base_model.trainable = False
-    # bn = BatchNormalization()(input_tensor)
-    # x = base_model(bn)
-    # x = GlobalAveragePooling2D()(x)
-    # x = Dense(128, activation='relu')(x)
-    # output = Dense(n_classes, activation='softmax')(x)
-    # model = Model(input_tensor, output)
-    # optimizer = Adam(learning_rate=learning_rate)
-    # model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
-    # return model
+    input_tensor = keras.Input(shape=input_shape)
+    base_model = InceptionV3(include_top=False,
+                             weights='imagenet',
+                             input_shape=input_shape)
+    base_model.trainable = False
 
     model = keras.Sequential()
-    model.add(keras.Input(shape=input_shape))
-
-    model.add(layers.Conv2D(32, kernel_size=(3, 3), activation="elu"))
-    add_convolutions(model, n_convolutions, 32)
+    model.add(input_tensor)
+    model.add(BatchNormalization())
+    model.add(base_model)
+    model.add(GlobalAveragePooling2D())
     add_dropout(model, model_to_run, 2, n)
-    model.add(layers.MaxPooling2D(pool_size=(2, 2)))
-
-    model.add(layers.Conv2D(64, kernel_size=(3, 3), activation="elu"))
-    add_convolutions(model, n_convolutions, 64)
-    add_dropout(model, model_to_run, 2, n)
-    model.add(layers.MaxPooling2D(pool_size=(2, 2)))
-
+    model.add(Dense(128, activation='relu'))
     model.add(layers.Flatten())
     add_dropout(model, model_to_run, 1, n)
-    model.add(layers.Dense(n_classes, activation="softmax"))
-    # model.summary()
-
+    model.add(Dense(n_classes, activation='softmax'))
     optimizer = Adam(learning_rate=learning_rate)
-    model.compile(optimizer=optimizer,
-                  loss='categorical_crossentropy',
-                  metrics=['accuracy'])
+    model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
     return model
+
+    # TODO: base model
+    # model = keras.Sequential()
+    # model.add(keras.Input(shape=input_shape))
+    # model.add(layers.Conv2D(32, kernel_size=(3, 3), activation="elu"))
+    # add_convolutions(model, n_convolutions, 32)
+    # add_dropout(model, model_to_run, 2, n)
+    # model.add(layers.MaxPooling2D(pool_size=(2, 2)))
+    #
+    # model.add(layers.Conv2D(64, kernel_size=(3, 3), activation="elu"))
+    # add_convolutions(model, n_convolutions, 64)
+    # add_dropout(model, model_to_run, 2, n)
+    # model.add(layers.MaxPooling2D(pool_size=(2, 2)))
+    #
+    # model.add(layers.Flatten())
+    # add_dropout(model, model_to_run, 1, n)
+    # model.add(layers.Dense(n_classes, activation="softmax"))
+    # # model.summary()
+    #
+    # optimizer = Adam(learning_rate=learning_rate)
+    # model.compile(optimizer=optimizer,
+    #               loss='categorical_crossentropy',
+    #               metrics=['accuracy'])
+    # return model
 
 
 # endregion
@@ -372,7 +377,10 @@ for ds_name in datasets_info:
 
     # preprocess
     X = X / 255
-    X = np.resize(X, (X.shape[0], 75, 75, 3))
+    if X.shape[1] >= 75 and X.shape[2] >= 75:
+        X = np.resize(X, (X.shape[0], 75, 75, 3))
+    else:
+        X = np.resize(X, (X.shape[0], X.shape[1], X.shape[2], 3))
     print(f"data shape after: {X.shape}")
     input_shape = (X.shape[1], X.shape[2], X.shape[3])
 
