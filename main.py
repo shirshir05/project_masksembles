@@ -41,12 +41,12 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 # params
 random_state = 42
 best_accuracy = 0.0
-MAX_SAMPLES_NUM = 2000
+MAX_SAMPLES_NUM = 200
 
 # region dataset
 # all dataset were taken from: https://www.tensorflow.org/datasets/catalog/overview
 datasets_info = dict(
-    stl10=[5000, 10],
+    # stl10=[5000, 10],
     mnist=[70000, 10],
     plant_village=[54303, 38],
     cats_vs_dogs=[23262, 2],
@@ -93,7 +93,7 @@ def add_dropout(model, model_to_run, dim, n):
     """
     the method adds a dropout layer to the input model, according to the wanted model.
     @param model: model to add dropout layer to
-    @param model_to_run:  string: "basic", "masksembles" or "pruned_masksembles"
+    @param model_to_run:  string: "basic", "masksembles" or ""
     @param dim: integer, 1 for 1D (after flattening the network) or 2 for 2D.
     @param n: number of masks, parameter of masksembles
     """
@@ -168,6 +168,7 @@ def create_model(learning_rate, n_convolutions, n, model_to_run):
     model.add(input_tensor)
     model.add(BatchNormalization())
     model.add(base_model)
+    add_convolutions(model, n_convolutions, 16)
     model.add(GlobalAveragePooling2D())
     add_dropout(model, model_to_run, 2, n)
     model.add(Dense(128, activation='relu'))
@@ -176,6 +177,7 @@ def create_model(learning_rate, n_convolutions, n, model_to_run):
     model.add(Dense(n_classes, activation='softmax'))
     optimizer = Adam(learning_rate=learning_rate)
     model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
+    model.summary()
     return model
 
     # TODO: base model
@@ -185,17 +187,17 @@ def create_model(learning_rate, n_convolutions, n, model_to_run):
     # add_convolutions(model, n_convolutions, 32)
     # add_dropout(model, model_to_run, 2, n)
     # model.add(layers.MaxPooling2D(pool_size=(2, 2)))
-    #
+
     # model.add(layers.Conv2D(64, kernel_size=(3, 3), activation="elu"))
     # add_convolutions(model, n_convolutions, 64)
     # add_dropout(model, model_to_run, 2, n)
     # model.add(layers.MaxPooling2D(pool_size=(2, 2)))
-    #
+
     # model.add(layers.Flatten())
     # add_dropout(model, model_to_run, 1, n)
     # model.add(layers.Dense(n_classes, activation="softmax"))
-    # # model.summary()
-    #
+    # model.summary()
+
     # optimizer = Adam(learning_rate=learning_rate)
     # model.compile(optimizer=optimizer,
     #               loss='categorical_crossentropy',
@@ -377,7 +379,7 @@ for ds_name in datasets_info:
 
     # preprocess
     X = X / 255
-    if X.shape[1] >= 75 and X.shape[2] >= 75:
+    if X.shape[1] <= 75 and X.shape[2] <= 75:
         X = np.resize(X, (X.shape[0], 75, 75, 3))
     else:
         X = np.resize(X, (X.shape[0], X.shape[1], X.shape[2], 3))
