@@ -41,26 +41,26 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 # params
 random_state = 42
 best_accuracy = 0.0
-MAX_SAMPLES_NUM = 200
+MAX_SAMPLES_NUM = 2000
 
 # region dataset
 # all dataset were taken from: https://www.tensorflow.org/datasets/catalog/overview
 datasets_info = dict(
-    # stl10=[5000, 10],
+    horses_or_humans=[1027, 2],
+    cats_vs_dogs=[23262, 2],
+    # binary_alpha_digits=[1404, 36],
+    # tf_flowers=[2670, 5],
+    # uc_merced=[2100, 21],
+    # kmnist=[60000, 10],
+    # cmaterdb=[5000, 10],
+    # citrus_leaves=[594, 4],
+    # rock_paper_scissors=[2520, 3],
+    dmlab=[65550, 6],
+    stl10=[5000, 10],
     mnist=[70000, 10],
     plant_village=[54303, 38],
-    cats_vs_dogs=[23262, 2],
     beans=[1034, 3],
     mnist_corrupted=[60000, 10],
-    binary_alpha_digits=[1404, 36],
-    citrus_leaves=[594, 4],
-    rock_paper_scissors=[2520, 3],
-    horses_or_humans=[1280, 2],
-    dmlab=[65550, 6],
-    cmaterdb=[5000, 10],
-    tf_flowers=[2670, 5],
-    uc_merced=[2100, 21],
-    kmnist=[60000, 10],
     food101=[75750, 101],
     deep_weeds=[17509, 9],
     eurosat=[27000, 10],
@@ -158,51 +158,51 @@ def create_model(learning_rate, n_convolutions, n, model_to_run):
     @param model_to_run: string: "basic", "masksembles" or "pruned_masksembles"
     @return: built model after compilation
     """
-    input_tensor = keras.Input(shape=input_shape)
-    base_model = InceptionV3(include_top=False,
-                             weights='imagenet',
-                             input_shape=input_shape)
-    base_model.trainable = False
-
-    model = keras.Sequential()
-    model.add(input_tensor)
-    model.add(BatchNormalization())
-    model.add(base_model)
-    add_convolutions(model, n_convolutions, 16)
-    model.add(GlobalAveragePooling2D())
-    add_dropout(model, model_to_run, 2, n)
-    model.add(Dense(128, activation='relu'))
-    model.add(layers.Flatten())
-    add_dropout(model, model_to_run, 1, n)
-    model.add(Dense(n_classes, activation='softmax'))
-    optimizer = Adam(learning_rate=learning_rate)
-    model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
-    model.summary()
-    return model
-
-    # TODO: base model
+    # input_tensor = keras.Input(shape=input_shape)
+    # base_model = InceptionV3(include_top=False,
+    #                          weights='imagenet',
+    #                          input_shape=input_shape)
+    # base_model.trainable = False
+    #
     # model = keras.Sequential()
-    # model.add(keras.Input(shape=input_shape))
-    # model.add(layers.Conv2D(32, kernel_size=(3, 3), activation="elu"))
-    # add_convolutions(model, n_convolutions, 32)
+    # model.add(input_tensor)
+    # model.add(BatchNormalization())
+    # model.add(base_model)
+    # add_convolutions(model, n_convolutions, 16)
+    # model.add(GlobalAveragePooling2D())
     # add_dropout(model, model_to_run, 2, n)
-    # model.add(layers.MaxPooling2D(pool_size=(2, 2)))
-
-    # model.add(layers.Conv2D(64, kernel_size=(3, 3), activation="elu"))
-    # add_convolutions(model, n_convolutions, 64)
-    # add_dropout(model, model_to_run, 2, n)
-    # model.add(layers.MaxPooling2D(pool_size=(2, 2)))
-
+    # model.add(Dense(128, activation='relu'))
     # model.add(layers.Flatten())
     # add_dropout(model, model_to_run, 1, n)
-    # model.add(layers.Dense(n_classes, activation="softmax"))
+    # model.add(Dense(n_classes, activation='softmax'))
+    # optimizer = Adam(learning_rate=learning_rate)
+    # model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
+    # model.summary()
+    # return model
+
+    # TODO: base model
+    model = keras.Sequential()
+    model.add(keras.Input(shape=input_shape))
+    model.add(layers.Conv2D(32, kernel_size=(3, 3), activation="elu"))
+    add_convolutions(model, n_convolutions, 32)
+    add_dropout(model, model_to_run, 2, n)
+    model.add(layers.MaxPooling2D(pool_size=(2, 2)))
+
+    model.add(layers.Conv2D(64, kernel_size=(3, 3), activation="elu"))
+    add_convolutions(model, n_convolutions, 64)
+    add_dropout(model, model_to_run, 2, n)
+    model.add(layers.MaxPooling2D(pool_size=(2, 2)))
+
+    model.add(layers.Flatten())
+    add_dropout(model, model_to_run, 1, n)
+    model.add(layers.Dense(n_classes, activation="softmax"))
     # model.summary()
 
-    # optimizer = Adam(learning_rate=learning_rate)
-    # model.compile(optimizer=optimizer,
-    #               loss='categorical_crossentropy',
-    #               metrics=['accuracy'])
-    # return model
+    optimizer = Adam(learning_rate=learning_rate)
+    model.compile(optimizer=optimizer,
+                  loss='categorical_crossentropy',
+                  metrics=['accuracy'])
+    return model
 
 
 # endregion
@@ -260,7 +260,7 @@ def fitness(learning_rate, n_convolutions, n):
         history = model.fit(x=X_train,
                             y=y_train,
                             # TODO: change number epoch
-                            epochs=100,
+                            epochs=40,
                             batch_size=16 * n,
                             validation_data=(X_val, y_val),
                             callbacks=[tfmot.sparsity.keras.UpdatePruningStep()], verbose=0
@@ -286,11 +286,11 @@ def fitness(learning_rate, n_convolutions, n):
 
 def best_result(search_result, ds_name, index_cv=0):
     if not os.path.exists(os.path.join("BayesianOptimization", ds_name)):
-        os.mkdir(os.path.join("BayesianOptimization", ds_name))
+        os.mkdir(os.path.join("BayesianOptimization",ds_name))
     if not os.path.exists(os.path.join("BayesianOptimization", ds_name, str(index_cv))):
-        os.mkdir(os.path.join("BayesianOptimization", ds_name, str(index_cv)))
+        os.mkdir(os.path.join("BayesianOptimization",ds_name, str(index_cv)))
     plot_convergence(search_result)
-    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv), "Converge.png"))
+    plt.savefig(os.path.join("BayesianOptimization",ds_name, str(index_cv), "Converge.png"))
     plt.clf()
     print(f" search result {search_result.x}")
     print(f"The best fitness value associated with these hyper-parameters {search_result.fun}")
@@ -341,6 +341,8 @@ def evaluate_on_test(y_true, y_pred, scores):
 def open_dirs():
     if not os.path.exists("BayesianOptimization"):
         os.mkdir("BayesianOptimization")
+    if not os.path.exists("BayesianOptimization"):
+        os.mkdir("BayesianOptimization")
     # create in cluster - to prevent error
     for ds_name in datasets_info:
         print(f"uploading dataset: {ds_name}")
@@ -355,7 +357,7 @@ def open_dirs():
 
 # create BayesianOptimization directories
 # TODO: run before all running
-# open_dirs()
+open_dirs()
 
 all_score = {}
 model_to_run = "masksembles"  # TODO: change model
@@ -379,10 +381,16 @@ for ds_name in datasets_info:
 
     # preprocess
     X = X / 255
-    if X.shape[1] <= 75 and X.shape[2] <= 75:
+    # if X.shape[1] <= 75 and X.shape[2] <= 75:
+    #     X = np.resize(X, (X.shape[0], 75, 75, 3))
+    # else:
+    #     X = np.resize(X, (X.shape[0], X.shape[1], X.shape[2], 3))
+    # TODO: base model
+    if X.shape[1] > 75 and X.shape[2] > 75:
         X = np.resize(X, (X.shape[0], 75, 75, 3))
     else:
         X = np.resize(X, (X.shape[0], X.shape[1], X.shape[2], 3))
+
     print(f"data shape after: {X.shape}")
     input_shape = (X.shape[1], X.shape[2], X.shape[3])
 
@@ -415,7 +423,7 @@ for ds_name in datasets_info:
             X_train_val, Y_train_val = divided(X_train_val, Y_train_val, num_nodes)
             start_train = time()
             # TODO: change epoch to 100
-            history = best_model.fit(X_train_val, Y_train_val, epochs=100, batch_size=16 * num_nodes, verbose=0,
+            history = best_model.fit(X_train_val, Y_train_val, epochs=80, batch_size=16 * num_nodes, verbose=0,
                                      callbacks=[tfmot.sparsity.keras.UpdatePruningStep()])
             end_train = time() - start_train
             y_pred = best_model.predict(X_test, batch_size=16 * num_nodes)
