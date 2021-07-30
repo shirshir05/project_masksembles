@@ -41,31 +41,30 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 # params
 random_state = 42
 best_accuracy = 0.0
-MAX_SAMPLES_NUM = 20000
-b_size = 16
+MAX_SAMPLES_NUM = 2000
+
 # region dataset
 # all dataset were taken from: https://www.tensorflow.org/datasets/catalog/overview
 datasets_info = dict(
-    # stl10=[5000, 10],
-    # mnist=[70000, 10],
-    # plant_village=[54303, 38],
-    # cats_vs_dogs=[23262, 2],
-    # beans=[1034, 3],
-    # mnist_corrupted=[60000, 10],
+    horses_or_humans=[1027, 2],
+    cats_vs_dogs=[23262, 2],
     # binary_alpha_digits=[1404, 36],
-    # citrus_leaves=[594, 4],
-    # rock_paper_scissors=[2520, 3],
-    # horses_or_humans=[1027, 2],
-    # dmlab=[65550, 6], # TODO: run om this dataset
-    # cmaterdb=[5000, 10],
-    # tf_flowers=[2670, 5],# TODO: run om this dataset
-
+    # tf_flowers=[2670, 5],
     # uc_merced=[2100, 21],
     # kmnist=[60000, 10],
-    # food101=[75750, 101],# TODO: run om this dataset
-    # deep_weeds=[17509, 9],# TODO: run om this dataset
-    # eurosat=[27000, 10],
-    # svhn_cropped=[73257, 10],
+    # cmaterdb=[5000, 10],
+    # citrus_leaves=[594, 4],
+    # rock_paper_scissors=[2520, 3],
+    dmlab=[65550, 6],
+    stl10=[5000, 10],
+    mnist=[70000, 10],
+    plant_village=[54303, 38],
+    beans=[1034, 3],
+    mnist_corrupted=[60000, 10],
+    food101=[75750, 101],
+    deep_weeds=[17509, 9],
+    eurosat=[27000, 10],
+    svhn_cropped=[73257, 10],
     cifar10=[60000, 10]
 )  # "dataset_name": [n_samples, NUM_CLASSES]
 
@@ -262,7 +261,7 @@ def fitness(learning_rate, n_convolutions, n):
                             y=y_train,
                             # TODO: change number epoch
                             epochs=40,
-                            batch_size=b_size * n,
+                            batch_size=16 * n,
                             validation_data=(X_val, y_val),
                             callbacks=[tfmot.sparsity.keras.UpdatePruningStep()], verbose=0
                             )
@@ -287,11 +286,11 @@ def fitness(learning_rate, n_convolutions, n):
 
 def best_result(search_result, ds_name, index_cv=0):
     if not os.path.exists(os.path.join("BayesianOptimization", ds_name)):
-        os.mkdir(os.path.join("BayesianOptimization", ds_name))
+        os.mkdir(os.path.join("BayesianOptimization",ds_name))
     if not os.path.exists(os.path.join("BayesianOptimization", ds_name, str(index_cv))):
-        os.mkdir(os.path.join("BayesianOptimization", ds_name, str(index_cv)))
+        os.mkdir(os.path.join("BayesianOptimization",ds_name, str(index_cv)))
     plot_convergence(search_result)
-    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv), "Converge.png"))
+    plt.savefig(os.path.join("BayesianOptimization",ds_name, str(index_cv), "Converge.png"))
     plt.clf()
     print(f" search result {search_result.x}")
     print(f"The best fitness value associated with these hyper-parameters {search_result.fun}")
@@ -342,6 +341,8 @@ def evaluate_on_test(y_true, y_pred, scores):
 def open_dirs():
     if not os.path.exists("BayesianOptimization"):
         os.mkdir("BayesianOptimization")
+    if not os.path.exists("BayesianOptimization"):
+        os.mkdir("BayesianOptimization")
     # create in cluster - to prevent error
     for ds_name in datasets_info:
         print(f"uploading dataset: {ds_name}")
@@ -356,7 +357,7 @@ def open_dirs():
 
 # create BayesianOptimization directories
 # TODO: run before all running
-# open_dirs()
+open_dirs()
 
 all_score = {}
 model_to_run = "masksembles"  # TODO: change model
@@ -380,10 +381,16 @@ for ds_name in datasets_info:
 
     # preprocess
     X = X / 255
-    if X.shape[1] >= 75 and X.shape[2] >= 75:
+    # if X.shape[1] <= 75 and X.shape[2] <= 75:
+    #     X = np.resize(X, (X.shape[0], 75, 75, 3))
+    # else:
+    #     X = np.resize(X, (X.shape[0], X.shape[1], X.shape[2], 3))
+    # TODO: base model
+    if X.shape[1] > 75 and X.shape[2] > 75:
         X = np.resize(X, (X.shape[0], 75, 75, 3))
     else:
         X = np.resize(X, (X.shape[0], X.shape[1], X.shape[2], 3))
+
     print(f"data shape after: {X.shape}")
     input_shape = (X.shape[1], X.shape[2], X.shape[3])
 
@@ -416,10 +423,10 @@ for ds_name in datasets_info:
             X_train_val, Y_train_val = divided(X_train_val, Y_train_val, num_nodes)
             start_train = time()
             # TODO: change epoch to 100
-            history = best_model.fit(X_train_val, Y_train_val, epochs=80, batch_size=b_size * num_nodes, verbose=0,
+            history = best_model.fit(X_train_val, Y_train_val, epochs=80, batch_size=16 * num_nodes, verbose=0,
                                      callbacks=[tfmot.sparsity.keras.UpdatePruningStep()])
             end_train = time() - start_train
-            y_pred = best_model.predict(X_test, batch_size=b_size * num_nodes)
+            y_pred = best_model.predict(X_test, batch_size=16 * num_nodes)
             score = {'accuracy_score': -1, "fpr": -1, 'tpr': -1, 'precision_score': -1, 'recall_score': -1,
                      'auc_score': -1, 'pr_auc_score': -1, 'Training_time': -1, 'inference_time': -1}
             try:
@@ -431,7 +438,7 @@ for ds_name in datasets_info:
             if len(test_index) > 1000:
                 X_test = X_test[:1000]
             start_test = time()
-            best_model.predict(X_test, batch_size=b_size * num_nodes)
+            best_model.predict(X_test, batch_size=16 * num_nodes)
             end_test = time() - start_test
             score['inference_time'] = end_test
             all_score[f"{ds_name}:{index_cv}"] = [float(i) if not isinstance(i, str) else i for i in search_result.x] + \
@@ -445,8 +452,8 @@ for ds_name in datasets_info:
             print(traceback.format_exc())
             print(f"Error {e}")
             pass
-    with open(os.path.join("BayesianOptimization", "scores_cifar10.json"), 'w') as f:  # for tracking
+    with open(os.path.join("BayesianOptimization", "scores.json"), 'w') as f:  # for tracking
         json.dump(all_score, f)
     print(results)
-with open(os.path.join("BayesianOptimization", "scores_cifar10.json"), 'w') as f:
+with open(os.path.join("BayesianOptimization", "scores.json"), 'w') as f:
     json.dump(all_score, f)
