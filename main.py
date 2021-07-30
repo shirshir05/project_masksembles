@@ -41,30 +41,31 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 # params
 random_state = 42
 best_accuracy = 0.0
-MAX_SAMPLES_NUM = 200
-
+MAX_SAMPLES_NUM = 20000
+b_size = 16
 # region dataset
 # all dataset were taken from: https://www.tensorflow.org/datasets/catalog/overview
 datasets_info = dict(
     # stl10=[5000, 10],
-    mnist=[70000, 10],
-    plant_village=[54303, 38],
-    cats_vs_dogs=[23262, 2],
-    beans=[1034, 3],
-    mnist_corrupted=[60000, 10],
-    binary_alpha_digits=[1404, 36],
-    citrus_leaves=[594, 4],
-    rock_paper_scissors=[2520, 3],
-    horses_or_humans=[1280, 2],
-    dmlab=[65550, 6],
-    cmaterdb=[5000, 10],
-    tf_flowers=[2670, 5],
-    uc_merced=[2100, 21],
-    kmnist=[60000, 10],
-    food101=[75750, 101],
-    deep_weeds=[17509, 9],
-    eurosat=[27000, 10],
-    svhn_cropped=[73257, 10],
+    # mnist=[70000, 10],
+    # plant_village=[54303, 38],
+    # cats_vs_dogs=[23262, 2],
+    # beans=[1034, 3],
+    # mnist_corrupted=[60000, 10],
+    # binary_alpha_digits=[1404, 36],
+    # citrus_leaves=[594, 4],
+    # rock_paper_scissors=[2520, 3],
+    # horses_or_humans=[1027, 2],
+    # dmlab=[65550, 6], # TODO: run om this dataset
+    # cmaterdb=[5000, 10],
+    # tf_flowers=[2670, 5],# TODO: run om this dataset
+
+    # uc_merced=[2100, 21],
+    # kmnist=[60000, 10],
+    # food101=[75750, 101],# TODO: run om this dataset
+    # deep_weeds=[17509, 9],# TODO: run om this dataset
+    # eurosat=[27000, 10],
+    # svhn_cropped=[73257, 10],
     cifar10=[60000, 10]
 )  # "dataset_name": [n_samples, NUM_CLASSES]
 
@@ -158,51 +159,51 @@ def create_model(learning_rate, n_convolutions, n, model_to_run):
     @param model_to_run: string: "basic", "masksembles" or "pruned_masksembles"
     @return: built model after compilation
     """
-    input_tensor = keras.Input(shape=input_shape)
-    base_model = InceptionV3(include_top=False,
-                             weights='imagenet',
-                             input_shape=input_shape)
-    base_model.trainable = False
-
-    model = keras.Sequential()
-    model.add(input_tensor)
-    model.add(BatchNormalization())
-    model.add(base_model)
-    add_convolutions(model, n_convolutions, 16)
-    model.add(GlobalAveragePooling2D())
-    add_dropout(model, model_to_run, 2, n)
-    model.add(Dense(128, activation='relu'))
-    model.add(layers.Flatten())
-    add_dropout(model, model_to_run, 1, n)
-    model.add(Dense(n_classes, activation='softmax'))
-    optimizer = Adam(learning_rate=learning_rate)
-    model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
-    model.summary()
-    return model
-
-    # TODO: base model
+    # input_tensor = keras.Input(shape=input_shape)
+    # base_model = InceptionV3(include_top=False,
+    #                          weights='imagenet',
+    #                          input_shape=input_shape)
+    # base_model.trainable = False
+    #
     # model = keras.Sequential()
-    # model.add(keras.Input(shape=input_shape))
-    # model.add(layers.Conv2D(32, kernel_size=(3, 3), activation="elu"))
-    # add_convolutions(model, n_convolutions, 32)
+    # model.add(input_tensor)
+    # model.add(BatchNormalization())
+    # model.add(base_model)
+    # add_convolutions(model, n_convolutions, 16)
+    # model.add(GlobalAveragePooling2D())
     # add_dropout(model, model_to_run, 2, n)
-    # model.add(layers.MaxPooling2D(pool_size=(2, 2)))
-
-    # model.add(layers.Conv2D(64, kernel_size=(3, 3), activation="elu"))
-    # add_convolutions(model, n_convolutions, 64)
-    # add_dropout(model, model_to_run, 2, n)
-    # model.add(layers.MaxPooling2D(pool_size=(2, 2)))
-
+    # model.add(Dense(128, activation='relu'))
     # model.add(layers.Flatten())
     # add_dropout(model, model_to_run, 1, n)
-    # model.add(layers.Dense(n_classes, activation="softmax"))
+    # model.add(Dense(n_classes, activation='softmax'))
+    # optimizer = Adam(learning_rate=learning_rate)
+    # model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
+    # model.summary()
+    # return model
+
+    # TODO: base model
+    model = keras.Sequential()
+    model.add(keras.Input(shape=input_shape))
+    model.add(layers.Conv2D(32, kernel_size=(3, 3), activation="elu"))
+    add_convolutions(model, n_convolutions, 32)
+    add_dropout(model, model_to_run, 2, n)
+    model.add(layers.MaxPooling2D(pool_size=(2, 2)))
+
+    model.add(layers.Conv2D(64, kernel_size=(3, 3), activation="elu"))
+    add_convolutions(model, n_convolutions, 64)
+    add_dropout(model, model_to_run, 2, n)
+    model.add(layers.MaxPooling2D(pool_size=(2, 2)))
+
+    model.add(layers.Flatten())
+    add_dropout(model, model_to_run, 1, n)
+    model.add(layers.Dense(n_classes, activation="softmax"))
     # model.summary()
 
-    # optimizer = Adam(learning_rate=learning_rate)
-    # model.compile(optimizer=optimizer,
-    #               loss='categorical_crossentropy',
-    #               metrics=['accuracy'])
-    # return model
+    optimizer = Adam(learning_rate=learning_rate)
+    model.compile(optimizer=optimizer,
+                  loss='categorical_crossentropy',
+                  metrics=['accuracy'])
+    return model
 
 
 # endregion
@@ -260,8 +261,8 @@ def fitness(learning_rate, n_convolutions, n):
         history = model.fit(x=X_train,
                             y=y_train,
                             # TODO: change number epoch
-                            epochs=100,
-                            batch_size=16 * n,
+                            epochs=40,
+                            batch_size=b_size * n,
                             validation_data=(X_val, y_val),
                             callbacks=[tfmot.sparsity.keras.UpdatePruningStep()], verbose=0
                             )
@@ -379,7 +380,7 @@ for ds_name in datasets_info:
 
     # preprocess
     X = X / 255
-    if X.shape[1] <= 75 and X.shape[2] <= 75:
+    if X.shape[1] >= 75 and X.shape[2] >= 75:
         X = np.resize(X, (X.shape[0], 75, 75, 3))
     else:
         X = np.resize(X, (X.shape[0], X.shape[1], X.shape[2], 3))
@@ -415,10 +416,10 @@ for ds_name in datasets_info:
             X_train_val, Y_train_val = divided(X_train_val, Y_train_val, num_nodes)
             start_train = time()
             # TODO: change epoch to 100
-            history = best_model.fit(X_train_val, Y_train_val, epochs=100, batch_size=16 * num_nodes, verbose=0,
+            history = best_model.fit(X_train_val, Y_train_val, epochs=80, batch_size=b_size * num_nodes, verbose=0,
                                      callbacks=[tfmot.sparsity.keras.UpdatePruningStep()])
             end_train = time() - start_train
-            y_pred = best_model.predict(X_test, batch_size=16 * num_nodes)
+            y_pred = best_model.predict(X_test, batch_size=b_size * num_nodes)
             score = {'accuracy_score': -1, "fpr": -1, 'tpr': -1, 'precision_score': -1, 'recall_score': -1,
                      'auc_score': -1, 'pr_auc_score': -1, 'Training_time': -1, 'inference_time': -1}
             try:
@@ -430,7 +431,7 @@ for ds_name in datasets_info:
             if len(test_index) > 1000:
                 X_test = X_test[:1000]
             start_test = time()
-            best_model.predict(X_test, batch_size=16 * num_nodes)
+            best_model.predict(X_test, batch_size=b_size * num_nodes)
             end_test = time() - start_test
             score['inference_time'] = end_test
             all_score[f"{ds_name}:{index_cv}"] = [float(i) if not isinstance(i, str) else i for i in search_result.x] + \
@@ -444,8 +445,8 @@ for ds_name in datasets_info:
             print(traceback.format_exc())
             print(f"Error {e}")
             pass
-    with open(os.path.join("BayesianOptimization", "scores.json"), 'w') as f:  # for tracking
+    with open(os.path.join("BayesianOptimization", "scores_cifar10.json"), 'w') as f:  # for tracking
         json.dump(all_score, f)
     print(results)
-with open(os.path.join("BayesianOptimization", "scores.json"), 'w') as f:
+with open(os.path.join("BayesianOptimization", "scores_cifar10.json"), 'w') as f:
     json.dump(all_score, f)
