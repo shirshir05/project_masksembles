@@ -62,10 +62,10 @@ datasets_info = dict(
     beans=[1034, 3],
     mnist_corrupted=[60000, 10],
     food101=[75750, 101],
-    deep_weeds=[17509, 9],
-    eurosat=[27000, 10],
+    deep_weeds=[17509, 9],  # TODO
+    eurosat=[27000, 10],  # TODO
     svhn_cropped=[73257, 10],
-    cifar10=[60000, 10]
+    cifar10=[60000, 10] #########
 )  # "dataset_name": [n_samples, NUM_CLASSES]
 
 # dataset check -  caltech_birds2011=[5994, 200]
@@ -286,11 +286,11 @@ def fitness(learning_rate, n_convolutions, n):
 
 def best_result(search_result, ds_name, index_cv=0):
     if not os.path.exists(os.path.join("BayesianOptimization", ds_name)):
-        os.mkdir(os.path.join("BayesianOptimization",ds_name))
+        os.mkdir(os.path.join("BayesianOptimization", ds_name))
     if not os.path.exists(os.path.join("BayesianOptimization", ds_name, str(index_cv))):
-        os.mkdir(os.path.join("BayesianOptimization",ds_name, str(index_cv)))
+        os.mkdir(os.path.join("BayesianOptimization", ds_name, str(index_cv)))
     plot_convergence(search_result)
-    plt.savefig(os.path.join("BayesianOptimization",ds_name, str(index_cv), "Converge.png"))
+    plt.savefig(os.path.join("BayesianOptimization", ds_name, str(index_cv), "Converge.png"))
     plt.clf()
     print(f" search result {search_result.x}")
     print(f"The best fitness value associated with these hyper-parameters {search_result.fun}")
