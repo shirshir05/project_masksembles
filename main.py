@@ -3,22 +3,15 @@ import os
 from time import time
 import numpy as np
 import tensorflow_model_optimization as tfmot
-from tensorflow.python.keras.applications.inception_v3 import InceptionV3
-from tensorflow.python.keras.layers import BatchNormalization, GlobalAveragePooling2D, Dense
-from tensorflow.python.keras.models import Model
 from tensorflow_model_optimization.python.core.sparsity.keras.prune import prune_low_magnitude
-
 from my_masksembles import MyMasksembles2D, MyMasksembles1D
-
-# TODO pip install git+http://github.com/nikitadurasov/masksembles
 from masksembles.keras import Masksembles1D, Masksembles2D
-from sklearn.metrics import confusion_matrix, precision_recall_curve
+from sklearn.metrics import confusion_matrix
 from tensorflow import keras
 import matplotlib.pyplot as plt
 from tensorflow.keras import backend as K
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import layers
-# TODO: pip install scikit-optimize
 from skopt import gp_minimize
 from skopt.space import Real, Integer
 from skopt.plots import plot_convergence
@@ -26,18 +19,19 @@ from skopt.plots import plot_evaluations
 from skopt.plots import plot_objective
 from skopt.utils import use_named_args
 from skopt.plots import plot_objective_2D
-
 from sklearn import metrics
 from sklearn.model_selection import StratifiedKFold
-
-# TODO: pip install tensorflow_datasets
 import tensorflow_datasets as tfds
 from keras.utils.np_utils import to_categorical
 import tensorflow as tf
-
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
-# TODO: code documentation
+
+# TODO: pip install tensorflow_datasets
+# TODO: pip install scikit-optimize
+# TODO pip install git+http://github.com/nikitadurasov/masksembles
+
+
 # params
 random_state = 42
 best_accuracy = 0.0
@@ -48,13 +42,13 @@ MAX_SAMPLES_NUM = 2000
 datasets_info = dict(
     horses_or_humans=[1027, 2],
     cats_vs_dogs=[23262, 2],
-    # binary_alpha_digits=[1404, 36],
-    # tf_flowers=[2670, 5],
-    # uc_merced=[2100, 21],
-    # kmnist=[60000, 10],
-    # cmaterdb=[5000, 10],
-    # citrus_leaves=[594, 4],
-    # rock_paper_scissors=[2520, 3],
+    binary_alpha_digits=[1404, 36],
+    tf_flowers=[2670, 5],
+    uc_merced=[2100, 21],
+    kmnist=[60000, 10],
+    cmaterdb=[5000, 10],
+    citrus_leaves=[594, 4],
+    rock_paper_scissors=[2520, 3],
     dmlab=[65550, 6],
     stl10=[5000, 10],
     mnist=[70000, 10],
@@ -62,16 +56,11 @@ datasets_info = dict(
     beans=[1034, 3],
     mnist_corrupted=[60000, 10],
     food101=[75750, 101],
-    deep_weeds=[17509, 9],  # TODO
-    eurosat=[27000, 10],  # TODO
+    deep_weeds=[17509, 9],
+    eurosat=[27000, 10],
     svhn_cropped=[73257, 10],
-    cifar10=[60000, 10] #########
+    cifar10=[60000, 10]
 )  # "dataset_name": [n_samples, NUM_CLASSES]
-
-# dataset check -  caltech_birds2011=[5994, 200]
-#  bad dataset: X "stanford_online_products"  snli, colorectal_histology,  patch_camelyon,oxford_iiit_pet, caltech101, caltech_birds2010,
-# lfwת curated_breast_imaging_ddsm, pet_finder, plant_leaves ,fashion_mnist = i_naturalist2017 = quickdraw_bitmap,
-# bigearthnet,malaria, cassava,  imagewangת "oxford_flowers102"
 
 
 # endregion
@@ -158,29 +147,7 @@ def create_model(learning_rate, n_convolutions, n, model_to_run):
     @param model_to_run: string: "basic", "masksembles" or "pruned_masksembles"
     @return: built model after compilation
     """
-    # input_tensor = keras.Input(shape=input_shape)
-    # base_model = InceptionV3(include_top=False,
-    #                          weights='imagenet',
-    #                          input_shape=input_shape)
-    # base_model.trainable = False
-    #
-    # model = keras.Sequential()
-    # model.add(input_tensor)
-    # model.add(BatchNormalization())
-    # model.add(base_model)
-    # add_convolutions(model, n_convolutions, 16)
-    # model.add(GlobalAveragePooling2D())
-    # add_dropout(model, model_to_run, 2, n)
-    # model.add(Dense(128, activation='relu'))
-    # model.add(layers.Flatten())
-    # add_dropout(model, model_to_run, 1, n)
-    # model.add(Dense(n_classes, activation='softmax'))
-    # optimizer = Adam(learning_rate=learning_rate)
-    # model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
-    # model.summary()
-    # return model
 
-    # TODO: base model
     model = keras.Sequential()
     model.add(keras.Input(shape=input_shape))
     model.add(layers.Conv2D(32, kernel_size=(3, 3), activation="elu"))
@@ -259,7 +226,6 @@ def fitness(learning_rate, n_convolutions, n):
 
         history = model.fit(x=X_train,
                             y=y_train,
-                            # TODO: change number epoch
                             epochs=40,
                             batch_size=16 * n,
                             validation_data=(X_val, y_val),
@@ -356,7 +322,6 @@ def open_dirs():
 # ================================== start of the script ==================================
 
 # create BayesianOptimization directories
-# TODO: run before all running
 open_dirs()
 
 all_score = {}
@@ -381,11 +346,6 @@ for ds_name in datasets_info:
 
     # preprocess
     X = X / 255
-    # if X.shape[1] <= 75 and X.shape[2] <= 75:
-    #     X = np.resize(X, (X.shape[0], 75, 75, 3))
-    # else:
-    #     X = np.resize(X, (X.shape[0], X.shape[1], X.shape[2], 3))
-    # TODO: base model
     if X.shape[1] > 75 and X.shape[2] > 75:
         X = np.resize(X, (X.shape[0], 75, 75, 3))
     else:
@@ -408,7 +368,6 @@ for ds_name in datasets_info:
             search_result = gp_minimize(func=fitness,
                                         dimensions=dimensions,
                                         acq_func='EI',  # Expected Improvement.
-                                        # TODO : change to 50
                                         n_calls=50,
                                         x0=default_parameters)
 
@@ -422,7 +381,6 @@ for ds_name in datasets_info:
             best_model = create_model(learning_rate, num_layers, num_nodes, model_to_run)
             X_train_val, Y_train_val = divided(X_train_val, Y_train_val, num_nodes)
             start_train = time()
-            # TODO: change epoch to 100
             history = best_model.fit(X_train_val, Y_train_val, epochs=80, batch_size=16 * num_nodes, verbose=0,
                                      callbacks=[tfmot.sparsity.keras.UpdatePruningStep()])
             end_train = time() - start_train
